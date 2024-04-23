@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import base64
-import copy
 import dataclasses
 import datetime
 import json
@@ -20,12 +19,11 @@ import pydantic
 import toml
 import yaml
 from pydantic import BaseModel, ConfigDict, validate_call
-from rich.console import Console as _Console
-from rich.logging import RichHandler as _RichHandler
+
+from .config import JobHelperConfig
 
 __all__ = [
     "ArgBase",
-    "JobHelperConfig",
     "Slurm",
     "compress_log",
     "log_cmd",
@@ -50,55 +48,6 @@ cat log/cmd.log | fzf
 _env0 = (  # noqa: E402
     os.environ.copy()
 )  # It should be before importing other modules, especially `mpi4py`.
-
-
-class CmdLoggerFileFormatter(logging.Formatter):
-    def format(self, record: logging.LogRecord) -> str:
-        if hasattr(record, "typename"):
-            record.label = f"{record.levelname[0]}-{record.typename}"
-            self._style._fmt = "%(asctime)s %(label)-8s>> %(message)s"
-        else:
-            self._style._fmt = "%(asctime)s %(levelname)-8s>> %(message)s"
-        return super().format(record)
-
-
-class JobHelperConfig:
-    """
-    This is a singleton class for storing global variables.
-    """
-
-    _instance: Optional["JobHelperConfig"] = None
-
-    def __init__(self, console_width: int = 120):
-        if JobHelperConfig._instance is not None:
-            raise RuntimeError("The instance is already initialized.")
-        self.log_dir = Path("log")
-        self.job_log_dir = Path("log/jobs")
-        if not self.log_dir.exists():
-            self.log_dir.mkdir()
-        if not self.job_log_dir.exists():
-            self.job_log_dir.mkdir()
-        self.rich_console = _Console(width=console_width)
-        logging.basicConfig(
-            level=logging.DEBUG,
-            format="%(message)s",
-            handlers=[_RichHandler(console=self.rich_console)],
-        )
-        logging.getLogger("matplotlib").setLevel(logging.WARNING)
-        logging.getLogger("h5py").setLevel(logging.WARNING)
-
-        self.cmd_logger = logging.getLogger(f"cmd_{__file__}")
-        self.cmd_logger.setLevel(logging.DEBUG)
-        cmd_logger_file_handler = logging.FileHandler(self.log_dir / "cmd.log")
-        cmd_logger_file_handler.setFormatter(CmdLoggerFileFormatter())
-        self.cmd_logger.addHandler(cmd_logger_file_handler)
-        JobHelperConfig._instance = self
-
-    @staticmethod
-    def get_instance() -> JobHelperConfig:
-        if JobHelperConfig._instance is None:
-            return JobHelperConfig()
-        return JobHelperConfig._instance
 
 
 def compress_log(dt: float = 24) -> None:

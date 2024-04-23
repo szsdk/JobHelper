@@ -1,3 +1,4 @@
+from .config import JobHelperConfig
 from .project_helper import (
     JobComboArg,
     JobConfig,
@@ -9,7 +10,6 @@ from .project_helper import (
     SlurmConfig,
 )
 from .slurm_helper import (
-    JobHelperConfig,
     Slurm,
     compress_log,
     force_commit,
