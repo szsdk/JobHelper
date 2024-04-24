@@ -1,4 +1,4 @@
-from .config import JobHelperConfig
+from .config import JobHelperConfig, jhcfg
 from .project_helper import (
     JobComboArg,
     JobConfig,

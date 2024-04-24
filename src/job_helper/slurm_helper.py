@@ -7,12 +7,11 @@ import shlex
 import subprocess
 import sys
 import tarfile
-from typing import ClassVar, Optional
+from typing import Optional
 
-import pydantic
-from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
+from pydantic import BaseModel, Field, computed_field, field_validator
 
-from .config import JobHelperConfig
+from .config import JobHelperConfig, jhcfg
 
 __all__ = [
     "Slurm",
@@ -47,7 +46,7 @@ def compress_log(dt: float = 24) -> None:
     time, `dt` (default=24 hours), in a directory, `log_dir` (default='log/slurm') to a tar.gz file.
     The file name is the current date+time.
     """
-    log_dir = JobHelperConfig.get_instance().job_log_dir
+    log_dir = jhcfg.job_log_dir
     # Get the current date+time
     now = datetime.datetime.now()
     now_str = now.strftime("%Y%m%d_%H%M%S")
@@ -74,9 +73,7 @@ def log_cmd() -> None:
     log_sh ls -all
     ```
     """
-    JobHelperConfig.get_instance().cmd_logger.info(
-        shlex.join(sys.argv), extra={"typename": "CMD"}
-    )
+    jhcfg.cmd_logger.info(shlex.join(sys.argv), extra={"typename": "CMD"})
 
 
 def log_sh() -> None:
@@ -88,7 +85,7 @@ def log_sh() -> None:
     """
     command = shlex.join(sys.argv[2:])
     subprocess.run(command, shell=True, check=True)
-    JobHelperConfig.get_instance().cmd_logger.info(command, extra={"typename": "SH"})
+    jhcfg.cmd_logger.info(command, extra={"typename": "SH"})
     exit()
 
 
@@ -99,7 +96,7 @@ def log_message(message: str, level: str = "info") -> None:
     log_message "hello" warning
     ```
     """
-    cmd_logger = JobHelperConfig.get_instance().cmd_logger
+    cmd_logger = jhcfg.cmd_logger
     log_cmds = {
         "info": cmd_logger.info,
         "error": cmd_logger.error,
@@ -113,8 +110,6 @@ class Slurm(BaseModel):
     This class provides a simple interface for submitting jobs to a cluster (Slurm).
     """
 
-    shell: ClassVar[str] = "/bin/sh"
-    sbatch_cmd: ClassVar[str] = "sbatch"
     run_cmd: str
     job_id: Optional[int] = None
     config: dict[str, str] = Field(default_factory=dict)
@@ -124,7 +119,6 @@ class Slurm(BaseModel):
     def default_and_replace_underscore(cls, v):
         v = {k.replace("_", "-"): v for k, v in v.items()}
         if "output" not in v:
-            jhcfg = JobHelperConfig.get_instance()
             v["output"] = f"{jhcfg.job_log_dir}/%j.out"
         return v
 
@@ -133,11 +127,12 @@ class Slurm(BaseModel):
         return self
 
     @computed_field
+    @property
     def script(self) -> str:
         """
         Generate the script to be submitted to the cluster.
         """
-        cmds = [f"#!{self.shell}"]
+        cmds = [f"#!{jhcfg.slurm.shell}"]
         for k, v in self.config.items():
             if v is None:
                 continue
@@ -150,8 +145,8 @@ class Slurm(BaseModel):
         Submit the job to the cluster.
         If `dry` is True, it only prints the script. Otherwise (--nodry), it submits the job.
         """
-        cfg = JobHelperConfig.get_instance()
-        slurm_script = "\n".join([f'{self.sbatch_cmd} << "EOF"', self.script, "EOF"])
+        sbatch_cmd = jhcfg.slurm.sbatch_cmd
+        slurm_script = "\n".join([f'{sbatch_cmd} << "EOF"', self.script, "EOF"])
         print(self.script)
         if dry:
             logging.info("It is a dry run.")
@@ -167,9 +162,9 @@ class Slurm(BaseModel):
             sys.exit(1)
         self.job_id = int(stdout.split(" ")[3])
         log_cmd()
-        cfg.cmd_logger.info(stdout)
+        jhcfg.cmd_logger.info(stdout)
         if save_script:
-            with (cfg.job_log_dir / f"{self.job_id}_slurm.sh").open("w") as fp:
+            with (jhcfg.job_log_dir / f"{self.job_id}_slurm.sh").open("w") as fp:
                 print(self.script, file=fp)
         return self
 
@@ -215,9 +210,7 @@ def force_commit(scope: str = "folder") -> None:
     """
     uncommitted = git_status(scope)
     if uncommitted == []:
-        JobHelperConfig.get_instance().cmd_logger.info(
-            f"commit: {git_commit_hash()}", extra={"typename": "GIT"}
-        )
+        jhcfg.cmd_logger.info(f"commit: {git_commit_hash()}", extra={"typename": "GIT"})
         return
     logging.warning("The following files are not committed:")
     for status, file in uncommitted:

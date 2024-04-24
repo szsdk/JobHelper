@@ -54,7 +54,7 @@ jobs:
     )
 
 
-@patch("job_helper.Slurm.sbatch_cmd", "python tests/fake_slurm.py client")
+@patch("job_helper.config.jhcfg.slurm.sbatch_cmd", "python tests/fake_slurm.py client")
 def test_project(project_1):
     project_1 = copy.deepcopy(project_1)
     data = np.arange(project_1.config.jobs["generate_data"].config["count"])

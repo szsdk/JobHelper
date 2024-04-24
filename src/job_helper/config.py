@@ -20,6 +20,11 @@ class CmdLoggerFileFormatter(logging.Formatter):
         return super().format(record)
 
 
+class SlurmConfig(BaseModel):
+    shell: str = "/bin/sh"
+    sbatch_cmd: str = "sbatch"
+
+
 class JobHelperConfig(BaseModel):
     """
     This is a singleton class for storing global variables.
@@ -30,6 +35,7 @@ class JobHelperConfig(BaseModel):
     log_dir: Path = Path("log")
     job_log_dir: Path = Path("log/jobs")
     console_width: int = 120
+    slurm: SlurmConfig = SlurmConfig()
 
     def __post_init__(self):
         if JobHelperConfig._instance is not None:
@@ -67,3 +73,6 @@ class JobHelperConfig(BaseModel):
         if JobHelperConfig._instance is None:
             return JobHelperConfig()
         return JobHelperConfig._instance
+
+
+jhcfg = JobHelperConfig()
