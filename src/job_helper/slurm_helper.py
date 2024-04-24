@@ -112,9 +112,11 @@ class Slurm(BaseModel):
 
     run_cmd: str
     job_id: Optional[int] = None
-    config: dict[str, str] = Field(default_factory=dict)
+    config: dict[str, str] = Field(
+        default_factory=lambda: {"output": f"{jhcfg.job_log_dir}/%j.out"}
+    )
 
-    @field_validator("config")
+    @field_validator("config", mode="before")
     @classmethod
     def default_and_replace_underscore(cls, v):
         v = {k.replace("_", "-"): v for k, v in v.items()}
