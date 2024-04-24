@@ -42,7 +42,7 @@ class ShellCommand(BaseModel):
     sh: str
 
     def slurm(self) -> Slurm:
-        return Slurm(self.sh)
+        return Slurm(run_cmd=self.sh)
 
 
 class ProjectArgBase(PDArgBase):
@@ -87,7 +87,7 @@ class JobComboArg(ProjectArgBase):
                     j.slurm(project) if isinstance(j, ProjectArgBase) else j.slurm()
                 ).run_cmd
             )
-        return Slurm("\n".join(cmds))
+        return Slurm(run_cmd="\n".join(cmds))
 
 
 class Project:

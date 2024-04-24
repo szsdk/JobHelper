@@ -7,15 +7,14 @@ import shlex
 import subprocess
 import sys
 import tarfile
-from typing import Optional
+from typing import ClassVar, Optional
 
 import pydantic
-from pydantic import BaseModel, ConfigDict, validate_call
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
 from .config import JobHelperConfig
 
 __all__ = [
-    "ArgBase",
     "Slurm",
     "compress_log",
     "log_cmd",
@@ -109,32 +108,31 @@ def log_message(message: str, level: str = "info") -> None:
     log_cmds[level](message, extra={"typename": "MSG"})
 
 
-class Slurm:
+class Slurm(BaseModel):
     """
     This class provides a simple interface for submitting jobs to a cluster (Slurm).
     """
 
-    shell: str = "/bin/sh"
-    sbatch_cmd: str = "sbatch"
+    shell: ClassVar[str] = "/bin/sh"
+    sbatch_cmd: ClassVar[str] = "sbatch"
+    run_cmd: str
+    job_id: Optional[int] = None
+    config: dict[str, str] = Field(default_factory=dict)
 
-    def __init__(
-        self,
-        run_cmd: str,
-        slurm_config: dict[str, str] = {},
-    ):
-        # self.config = JobHelperConfig.get_instance().job_default_config.copy()
-        jhcfg = JobHelperConfig.get_instance()
-        self.config: dict[str, str] = {
-            "output": f"{jhcfg.job_log_dir}/%j.out",
-        }
-        self.set_slurm(**slurm_config)
-        self.run_cmd = run_cmd
-        self.job_id: Optional[int] = None
+    @field_validator("config")
+    @classmethod
+    def default_and_replace_underscore(cls, v):
+        v = {k.replace("_", "-"): v for k, v in v.items()}
+        if "output" not in v:
+            jhcfg = JobHelperConfig.get_instance()
+            v["output"] = f"{jhcfg.job_log_dir}/%j.out"
+        return v
 
     def set_slurm(self, **kwargs: str) -> Slurm:
         self.config.update({k.replace("_", "-"): v for k, v in kwargs.items()})
         return self
 
+    @computed_field
     def script(self) -> str:
         """
         Generate the script to be submitted to the cluster.
@@ -153,8 +151,8 @@ class Slurm:
         If `dry` is True, it only prints the script. Otherwise (--nodry), it submits the job.
         """
         cfg = JobHelperConfig.get_instance()
-        slurm_script = "\n".join([f'{self.sbatch_cmd} << "EOF"', self.script(), "EOF"])
-        print(self.script())
+        slurm_script = "\n".join([f'{self.sbatch_cmd} << "EOF"', self.script, "EOF"])
+        print(self.script)
         if dry:
             logging.info("It is a dry run.")
             return self
@@ -172,7 +170,7 @@ class Slurm:
         cfg.cmd_logger.info(stdout)
         if save_script:
             with (cfg.job_log_dir / f"{self.job_id}_slurm.sh").open("w") as fp:
-                print(self.script(), file=fp)
+                print(self.script, file=fp)
         return self
 
     def __str__(self) -> str:

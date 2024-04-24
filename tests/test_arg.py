@@ -2,7 +2,6 @@ from pathlib import Path
 
 import numpy as np
 import yaml
-
 from job_helper import PDArgBase, Slurm
 
 
@@ -17,11 +16,11 @@ class GenerateDataArg(PDArgBase):
 
     def slurm(self):
         return Slurm(
-            f"""
+            run_cmd=f"""
 # {self}
 export PYTHONPATH={Path(__file__).parent.parent}
 python {__file__} {type(self).__name__} from_base64 '{self.to_base64()}' - run
-        """,
+        """
         )
 
 
@@ -36,7 +35,7 @@ class SumDataArg(PDArgBase):
 
     def slurm(self):
         return Slurm(
-            f"""
+            run_cmd=f"""
 # {self}
 export PYTHONPATH={Path(__file__).parent.parent}
 python {__file__} {type(self).__name__} from_base64 '{self.to_base64()}' - run
