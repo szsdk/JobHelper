@@ -29,14 +29,16 @@ jobs:
         - generate_data
     slurm_config: 
       dependency:
-      - START
+        after:
+          - START
   job_sleep:
     command: shell
     config:
       sh: sleep 0.4
     slurm_config: 
       dependency:
-      - START
+        afternotok:
+          - START
   sum_data:
     command: sum_data
     config:

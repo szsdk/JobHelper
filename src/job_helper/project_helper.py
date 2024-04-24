@@ -71,11 +71,7 @@ class SlrumDependency(BaseModel):
                 else:
                     logging.warning(f"job {j} not found")
             ans.append(f"{k}:{':'.join(ansk)}")
-        print("CP0", ans)
         return ",".join(ans)
-        #     if len(v) > 0:
-        #         ans.append(f"{k}:{':'.join(getattr(self, k))}")
-        # return " ".join(ans)
 
 
 class SlurmConfig(BaseModel):
@@ -203,7 +199,6 @@ class Project(PDArgBase):
         while len(jobs_torun) > 0:
             jobname, job = jobs_torun.popitem()
             for j in job.slurm_config.dependency:
-                print("CP1", j)
                 if j in jobs_torun:
                     self._run_jobs(jobs, jobs_torun, dry)
             job_arg = self[job.command].model_validate(job.config)
@@ -250,11 +245,19 @@ class Project(PDArgBase):
         jobs_torun = self._get_job_torun(reruns, run_following)
         flow = ["flowchart TD"]
         for job_name, job in self.config.jobs.items():
-            for d in job.slurm_config.dependency:
+            node_j = job_name if job_name in jobs_torun else f"{job_name}:::norun"
+            for d in job.slurm_config.dependency.afterok:
                 node_d = d if d in jobs_torun else f"{d}:::norun"
-                node_j = job_name if job_name in jobs_torun else f"{job_name}:::norun"
                 flow.append(f"    {node_d} --> {node_j}")
-                # flow.append(f"    {d} --> {job_name}")
+            for d in job.slurm_config.dependency.after:
+                node_d = d if d in jobs_torun else f"{d}:::norun"
+                flow.append(f"    {node_d} --o {node_j}")
+            for d in job.slurm_config.dependency.afternotok:
+                node_d = d if d in jobs_torun else f"{d}:::norun"
+                flow.append(f"    {node_d} -.-x {node_j}")
+            for d in job.slurm_config.dependency.afterany:
+                node_d = d if d in jobs_torun else f"{d}:::norun"
+                flow.append(f"    {node_d} -.-o {node_j}")
         flow.append(
             "classDef norun fill:#ddd,stroke:#aaa,stroke-width:3px,stroke-dasharray: 5 5"
         )
