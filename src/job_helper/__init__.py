@@ -1,3 +1,4 @@
+from ._tools import tools
 from .cli import console_main
 from .config import JobHelperConfig, jhcfg
 from .project_helper import (
@@ -10,10 +11,4 @@ from .project_helper import (
     ShellCommand,
     SlurmConfig,
 )
-from .slurm_helper import (
-    Slurm,
-    compress_log,
-    force_commit,
-    log_cmd,
-    log_sh,
-)
+from .slurm_helper import Slurm

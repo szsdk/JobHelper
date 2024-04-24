@@ -7,6 +7,7 @@ console_width = 120
 generate_data = "tests.example_cmds.GenerateDataArg"
 sum_data = "tests.example_cmds.SumDataArg"
 project = "job_helper.Project"
+tools = "job_helper.tools"
 
 [slurm]
 shell = "/bin/sh"
