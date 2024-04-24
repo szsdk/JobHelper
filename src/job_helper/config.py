@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import logging
+import os
 from functools import cached_property
 from pathlib import Path
 from typing import Any, ClassVar, Dict, Optional, Protocol, Self, TypeVar, Union
 
-from pydantic import BaseModel, ConfigDict, computed_field
+import toml
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 from rich.console import Console as _Console
 from rich.logging import RichHandler as _RichHandler
 
@@ -22,6 +24,10 @@ class CmdLoggerFileFormatter(logging.Formatter):
 
 class SlurmConfig(BaseModel):
     shell: str = "/bin/sh"
+    sthell: str = "/bin/sh"
+    sbatch_cmd: str = "sbatch"
+    shell: str = "/bin/sh"
+    sbatch_cmd: str = "sbatch"
     sbatch_cmd: str = "sbatch"
 
 
@@ -36,14 +42,17 @@ class JobHelperConfig(BaseModel):
     job_log_dir: Path = Path("log/jobs")
     console_width: int = 120
     slurm: SlurmConfig = SlurmConfig()
+    commands: dict[str, str] = Field(default_factory=dict)
 
-    def __post_init__(self):
+    @field_validator("log_dir", "job_log_dir")
+    @classmethod
+    def dir_exists(cls, v: Path) -> Path:
+        v.mkdir(parents=True, exist_ok=True)
+        return v
+
+    def model_post_init(self, _):
         if JobHelperConfig._instance is not None:
             raise RuntimeError("The instance is already initialized.")
-        if not self.log_dir.exists():
-            self.log_dir.mkdir()
-        if not self.job_log_dir.exists():
-            self.job_log_dir.mkdir()
         logging.basicConfig(
             level=logging.DEBUG,
             format="%(message)s",
@@ -75,4 +84,10 @@ class JobHelperConfig(BaseModel):
         return JobHelperConfig._instance
 
 
-jhcfg = JobHelperConfig()
+def _init_jhcfg():
+    if "JHCFG" not in os.environ:
+        return JobHelperConfig()
+    return JobHelperConfig.model_validate(toml.load(os.environ["JHCFG"]))
+
+
+jhcfg = _init_jhcfg()

@@ -2,15 +2,20 @@ from __future__ import annotations
 
 import base64
 import copy
+import json
 import logging
+import pydoc
 import urllib.request
 import zlib
 from pathlib import Path
-from typing import Any, Mapping, Protocol, TypeVar, Union
+from typing import Any, Union
 
-from pydantic import BaseModel, ConfigDict
+import toml
+import yaml
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .arg import PDArgBase
+from .config import jhcfg
 from .slurm_helper import Slurm
 
 
@@ -25,7 +30,6 @@ def _get_slurm_config(
                 jl.append(str(j))
             elif jobs[j].job_id is not None:
                 jl.append(str(jobs[j].job_id))
-            # jl.append(str(j if dry else jobs[j].job_id))
         else:
             logging.warning(f"job {j} not found")
     if len(jl) > 0:
@@ -90,19 +94,45 @@ class JobComboArg(ProjectArgBase):
         return Slurm(run_cmd="\n".join(cmds))
 
 
-class Project:
-    def __init__(self, env: Mapping[str, type[PDArgBase]], config):
-        self.config = ProjectConfig.model_validate(config)
-        self._env = env
-        for cmd in ["job_combo", "shell"]:
-            if cmd in self._env:
-                raise ValueError(f"{cmd} is reserved.")
-        self._default_env = {"job_combo": JobComboArg, "shell": ShellCommand}
+def _add_default_commands(v):
+    for cmd in ["job_combo", "shell"]:
+        if cmd in v:
+            raise ValueError(f"{cmd} is reserved.")
+    v.update({"job_combo": JobComboArg, "shell": ShellCommand})
+    return v
+
+
+def _get_commands():
+    return _add_default_commands(
+        {cmd: pydoc.locate(arg_class) for cmd, arg_class in jhcfg.commands.items()}
+    )
+
+
+class Project(PDArgBase):
+    commands: dict[str, type[PDArgBase]] = Field(default_factory=_get_commands)
+    config: ProjectConfig
+
+    @field_validator("commands")
+    @classmethod
+    def add_default_commands(cls, v):
+        return _add_default_commands(v)
+
+    @field_validator("config", mode="before")
+    def config_from_file(cls, v):
+        if not isinstance(v, (str, Path)):
+            return v
+        fn = Path(v)
+        if fn.suffix == ".yaml":
+            return yaml.safe_load(fn.read_text())
+        elif fn.suffix == ".toml":
+            return toml.load(fn)
+        elif fn.suffix == ".json":
+            return json.loads(fn.read_text())
+        raise ValueError(f"Unsupported config file: {fn}")
 
     def __getitem__(self, key):
-        if key in self._default_env:
-            return self._default_env[key]
-        return self._env[key]
+        logging.info(f"commands: {self.commands}")
+        return self.commands[key]
 
     def _get_job_torun(self, joblist, run_following) -> dict[str, JobConfig]:
         jobs = copy.deepcopy(self.config.jobs)

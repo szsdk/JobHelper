@@ -1,5 +1,5 @@
 import copy
-from unittest.mock import patch
+import json
 
 import numpy as np
 import pytest
@@ -7,15 +7,14 @@ import yaml
 from job_helper import Project
 
 from tests.fake_slurm import SlurmServer
-from tests.test_arg import GenerateDataArg, SumDataArg
 
 
 @pytest.fixture(scope="session")
-def project_1(tmpdir_factory):
+def project_cfg(tmpdir_factory):
     dir = tmpdir_factory.mktemp("project_1")
     print(dir)
     data_fn = dir / "c.txt"
-    cfg_str = f"""
+    return f"""
 jobs:
   generate_data:
     command: generate_data
@@ -48,15 +47,21 @@ jobs:
         - job_1
         - job_sleep
 """
-    return Project(
-        {"generate_data": GenerateDataArg, "sum_data": SumDataArg},
-        yaml.safe_load(cfg_str),
-    )
 
 
-@patch("job_helper.config.jhcfg.slurm.sbatch_cmd", "python tests/fake_slurm.py client")
-def test_project(project_1):
-    project_1 = copy.deepcopy(project_1)
+def test_project_load(project_cfg, tmp_path):
+    p0 = Project(config=yaml.safe_load(project_cfg))
+    with open(tmp_path / "project_1.yaml", "w") as f:
+        print(project_cfg, file=f)
+    assert p0 == Project(config=tmp_path / "project_1.yaml")
+
+    with open(tmp_path / "project_1.json", "w") as f:
+        print(json.dumps(p0.config.model_dump()), file=f)
+    assert p0 == Project(config=tmp_path / "project_1.json")
+
+
+def test_project(project_cfg):
+    project_1 = Project(config=yaml.safe_load(project_cfg))
     data = np.arange(project_1.config.jobs["generate_data"].config["count"])
     with SlurmServer():
         project_1.run(dry=False)

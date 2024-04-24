@@ -1,0 +1,12 @@
+log_dir = "tests/log/"
+job_log_dir = "tests/log/jobs"
+console_width = 120
+
+[commands]
+generate_data = "tests.example_cmds.GenerateDataArg"
+sum_data = "tests.example_cmds.SumDataArg"
+project = "job_helper.Project"
+
+[slurm]
+shell = "/bin/sh"
+sbatch_cmd = "python tests/fake_slurm.py client"

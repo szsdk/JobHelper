@@ -19,6 +19,7 @@ tests = [
     "pdoc3",
     "pytest",
     "pytest-cov",
+    "pytest-env",
     "pytest-mpi",
     "pytest-html",
     "pytest-metadata",
@@ -35,6 +36,9 @@ job_helper = "src/job_helper/"
 
 [tool.setuptools.package-data]
 job_helper = ["py.typed"]
+
+[tool.pytest_env]
+JHCFG = "tests/jh_config.toml"
 
 [tool.pytest.ini_options]
 log_cli = true
