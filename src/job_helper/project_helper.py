@@ -24,18 +24,9 @@ def _get_slurm_config(
     jobname: str, slurm_config: SlurmConfig, jobs: dict[str, Slurm], dry: bool
 ) -> dict[str, str]:
     ans = copy.deepcopy(slurm_config.model_dump())
-    jl = []
-    for j in slurm_config.dependency:
-        if j in jobs:
-            if dry:
-                jl.append(str(j))
-            elif jobs[j].job_id is not None:
-                jl.append(str(jobs[j].job_id))
-        else:
-            logging.warning(f"job {j} not found")
-    if len(jl) > 0:
-        ans["dependency"] = "afterok:" + ":".join(jl)
-    else:
+    ans["dependency"] = slurm_config.dependency.slurm_str(jobs, dry)
+    print(ans["dependency"])
+    if ans["dependency"] == "":
         del ans["dependency"]
     for k, v in ans.items():
         ans[k] = str(v)
@@ -55,9 +46,49 @@ class ProjectArgBase(PDArgBase):
         raise NotImplementedError
 
 
+class SlrumDependency(BaseModel):
+    after: list[str] = Field(default_factory=list)
+    afterany: list[str] = Field(default_factory=list)
+    afternotok: list[str] = Field(default_factory=list)
+    afterok: list[str] = Field(default_factory=list)
+    singleton: bool = False  # Placeholder; TODO: Implement this
+
+    def __iter__(self):
+        for k in ["after", "afterany", "afternotok", "afterok"]:
+            yield from getattr(self, k)
+
+    def slurm_str(self, jobs, dry: bool) -> str:
+        ans = []
+        for k in ["after", "afterany", "afternotok", "afterok"]:
+            js = getattr(self, k)
+            ansk = []
+            for j in js:
+                if j in jobs:
+                    if dry:
+                        ansk.append(j)
+                    elif jobs[j].job_id is not None:
+                        ansk.append(str(jobs[j].job_id))
+                else:
+                    logging.warning(f"job {j} not found")
+            ans.append(f"{k}:{':'.join(ansk)}")
+        print("CP0", ans)
+        return ",".join(ans)
+        #     if len(v) > 0:
+        #         ans.append(f"{k}:{':'.join(getattr(self, k))}")
+        # return " ".join(ans)
+
+
 class SlurmConfig(BaseModel):
     model_config = ConfigDict(extra="allow", arbitrary_types_allowed=True)
-    dependency: list[str] = []
+    dependency: SlrumDependency = SlrumDependency()
+
+    @field_validator("dependency", mode="before")
+    @classmethod
+    def from_list(cls, v):
+        if isinstance(v, list):
+            print(SlrumDependency(afterok=v))
+            return SlrumDependency(afterok=v)
+        return v
 
 
 class JobConfig(BaseModel):
@@ -172,6 +203,7 @@ class Project(PDArgBase):
         while len(jobs_torun) > 0:
             jobname, job = jobs_torun.popitem()
             for j in job.slurm_config.dependency:
+                print("CP1", j)
                 if j in jobs_torun:
                     self._run_jobs(jobs, jobs_torun, dry)
             job_arg = self[job.command].model_validate(job.config)
