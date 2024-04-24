@@ -1,5 +1,5 @@
-import copy
 import json
+import urllib.error
 
 import numpy as np
 import pytest
@@ -58,6 +58,21 @@ def test_project_load(project_cfg, tmp_path):
     with open(tmp_path / "project_1.json", "w") as f:
         print(json.dumps(p0.config.model_dump()), file=f)
     assert p0 == Project(config=tmp_path / "project_1.json")
+
+
+@pytest.mark.parametrize("output_fn", ["-", "job_flow.png", "job_flow.svg"])
+def test_jobflow(output_fn, project_cfg, tmp_path):
+    print(str(tmp_path / output_fn))
+    try:
+        Project(config=yaml.safe_load(project_cfg)).jobflow(
+            output_fn="-" if output_fn == "-" else str(tmp_path / output_fn)
+        )
+    except urllib.error.HTTPError as e:
+        err = e.read().decode()
+        if "400" in err:
+            pytest.skip(err)
+        else:
+            raise e
 
 
 def test_project(project_cfg):
