@@ -6,23 +6,12 @@ import logging
 import urllib.request
 import zlib
 from pathlib import Path
-from typing import (
-    Any,
-    ClassVar,
-    Dict,
-    Generic,
-    Mapping,
-    Optional,
-    Protocol,
-    Self,
-    TypeVar,
-    Union,
-    get_args,
-)
+from typing import Any, Mapping, Protocol, TypeVar, Union
 
-from pydantic import BaseModel, ConfigDict, model_validator, validate_call
+from pydantic import BaseModel, ConfigDict
 
-from .slurm_helper import PDArgBase, Slurm
+from .arg import PDArgBase
+from .slurm_helper import Slurm
 
 
 def _get_slurm_config(
@@ -69,7 +58,7 @@ class SlurmConfig(BaseModel):
 class JobConfig(BaseModel):
     command: str
     config: dict[str, Any]
-    slurm_config: Optional[SlurmConfig] = None
+    slurm_config: SlurmConfig = SlurmConfig()
 
 
 class ProjectConfig(BaseModel):

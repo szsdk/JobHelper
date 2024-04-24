@@ -1,0 +1,133 @@
+import base64
+import logging
+import os
+import zlib
+from pathlib import Path
+from string import Template
+from typing import Any, ClassVar, Dict, Optional, Protocol, Self, TypeVar, Union
+
+import pydantic
+import toml
+import yaml
+from pydantic import BaseModel, validate_call
+
+from .slurm_helper import Slurm
+
+
+def _multi_index(d, indices: str):
+    ans = d
+    if indices == "":
+        return ans
+    for i in indices.split("."):
+        ans = ans[i]
+    return ans
+
+
+def doc_from_FieldInfo(field_info: pydantic.fields.FieldInfo) -> str:
+    """convert FieldInfo to docstring"""
+    doc_parts = []
+    if field_info.description is not None:
+        doc_parts.append(f"Description: {field_info.description}")
+
+    if field_info.annotation is not None:
+        doc_parts.append(f"Type: {field_info.annotation.__name__}")
+
+    constraints_doc = ", ".join([str(i) for i in field_info.metadata])
+    if constraints_doc != "":
+        doc_parts.append(f"Constraints: {constraints_doc}\n")
+    return " | ".join(doc_parts)
+
+
+class PDArgBase(BaseModel):
+    """
+    This is a base class for the arguments.
+    ```python
+    class Args(PDArgBase):
+        ...
+    ```
+    """
+
+    toml_section_name: ClassVar[Optional[str]] = None
+
+    @classmethod
+    def __pydantic_init_subclass__(cls):
+        if cls.__doc__ is None:
+            cls.__doc__ = ""
+        param_docs = []
+        for k, v in cls.model_fields.items():
+            param_docs.append(f"   {k}: {doc_from_FieldInfo(v)}")
+        if len(param_docs) > 0:
+            cls.__doc__ = cls.__doc__ + "\n\nparameters:\n" + "\n".join(param_docs)
+
+    def to_base64(self) -> str:
+        return base64.b64encode(
+            zlib.compress(self.model_dump_json().encode(), 9)
+        ).decode()
+
+    @classmethod
+    def from_base64(cls, s: str, substitute: bool = True):
+        s = zlib.decompress(base64.b64decode(s.encode())).decode()
+        if substitute:
+            s = Template(s).safe_substitute(os.environ)
+        return cls.model_validate_json(s)
+
+    def log(self) -> Self:
+        logging.info(self)
+        return self
+
+    @classmethod
+    @validate_call
+    def from_toml(cls, path: str, toml_section_name: str = "") -> Self:
+        path_split = path.split("::")
+        if len(path_split) == 2:
+            if toml_section_name != "":
+                raise ValueError("The section name is specified twice.")
+            path, sn = path_split
+        elif toml_section_name == "":
+            if cls.toml_section_name is None:
+                raise ValueError("The section name is not specified.")
+            sn = cls.toml_section_name
+        else:
+            if toml_section_name != cls.toml_section_name:
+                logging.warning(
+                    f"The tomal section name {toml_section_name} is different from the default {cls.toml_section_name}."
+                )
+            sn = toml_section_name
+        with open(path) as fp:
+            return cls.model_validate(_multi_index(toml.load(fp), sn))
+
+    @classmethod
+    @validate_call
+    def from_config(cls, path: Union[str, Path]) -> Self:
+        path_split = str(path).split("::")
+        if len(path_split) == 2:
+            path, sn = path_split
+        else:
+            sn = ""
+        p = Path(path)
+        if p.suffix == ".toml":
+            with open(path) as fp:
+                return cls.model_validate(_multi_index(toml.load(fp), sn))
+        if p.suffix == ".yaml":
+            with open(path) as fp:
+                return cls.model_validate(_multi_index(yaml.safe_load(fp), sn))
+        raise ValueError(f"Unsupported config file format: {p.suffix}")
+
+    @validate_call
+    def to_toml(self, path: Optional[Path] = None) -> None:
+        if self.toml_section_name is None:
+            raise ValueError("The section name is not specified.")
+        c = {self.toml_section_name: self.model_dump(mode="json")}
+        if path is None:
+            print(toml.dumps(c))
+        else:
+            with path.open("a") as fp:
+                toml.dump(c, fp)
+
+    def setattr(self, **kargs):
+        for k, v in kargs.items():
+            setattr(self, k, v)
+        return self
+
+    def slurm(self) -> Slurm:
+        raise NotImplementedError
