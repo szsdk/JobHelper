@@ -112,9 +112,7 @@ class Slurm(BaseModel):
 
     run_cmd: str
     job_id: Optional[int] = None
-    config: dict[str, str] = Field(
-        default_factory=lambda: {"output": f"{jhcfg.job_log_dir}/%j.out"}
-    )
+    config: dict[str, str] = Field(default_factory=dict, validate_default=True)
 
     @field_validator("config", mode="before")
     @classmethod

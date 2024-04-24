@@ -38,9 +38,9 @@ class JobHelperConfig(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
     _instance: ClassVar[Optional[Self]] = None
-    log_dir: Path = Path("log")
-    job_log_dir: Path = Path("log/jobs")
-    project_log_dir: Path = Path("log/projects")
+    log_dir: Path = Field(Path("log"), validate_default=True)
+    job_log_dir: Path = Field(Path("log/jobs"), validate_default=True)
+    project_log_dir: Path = Field(Path("log/projects"), validate_default=True)
     console_width: int = 120
     slurm: SlurmConfig = SlurmConfig()
     commands: dict[str, str] = Field(default_factory=dict)
