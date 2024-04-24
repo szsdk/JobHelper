@@ -85,9 +85,15 @@ class JobHelperConfig(BaseModel):
 
 
 def _init_jhcfg():
-    if "JHCFG" not in os.environ:
+    fn = None
+    if "JHCFG" in os.environ:
+        fn = os.environ["JHCFG"]
+    elif Path("jh_config.toml").exists():
+        fn = "jh_config.toml"
+
+    if fn is None:
         return JobHelperConfig()
-    return JobHelperConfig.model_validate(toml.load(os.environ["JHCFG"]))
+    return JobHelperConfig.model_validate(toml.load(fn))
 
 
 jhcfg = _init_jhcfg()

@@ -26,6 +26,9 @@ tests = [
     "zmq",
 ]
 
+[project.scripts]
+jh = "job_helper:console_main"
+
 [tool.setuptools]
 zip-safe = false
 packages = ["job_helper"]
