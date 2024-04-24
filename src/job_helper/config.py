@@ -40,11 +40,12 @@ class JobHelperConfig(BaseModel):
     _instance: ClassVar[Optional[Self]] = None
     log_dir: Path = Path("log")
     job_log_dir: Path = Path("log/jobs")
+    project_log_dir: Path = Path("log/projects")
     console_width: int = 120
     slurm: SlurmConfig = SlurmConfig()
     commands: dict[str, str] = Field(default_factory=dict)
 
-    @field_validator("log_dir", "job_log_dir")
+    @field_validator("log_dir", "job_log_dir", "project_log_dir")
     @classmethod
     def dir_exists(cls, v: Path) -> Path:
         v.mkdir(parents=True, exist_ok=True)

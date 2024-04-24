@@ -7,6 +7,7 @@ import logging
 import pydoc
 import urllib.request
 import zlib
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Union
 
@@ -108,6 +109,12 @@ def _get_commands():
     )
 
 
+class ProjectOutput(BaseModel):
+    config: ProjectConfig
+    jobs: dict[str, int]
+    time: datetime = Field(default_factory=datetime.now)
+
+
 class Project(PDArgBase):
     commands: dict[str, type[PDArgBase]] = Field(default_factory=_get_commands)
     config: ProjectConfig
@@ -185,7 +192,22 @@ class Project(PDArgBase):
     ) -> None:
         jobs_torun = self._get_job_torun(reruns, run_following)
         jobs = self._run_jobs({}, jobs_torun, dry)
-        logging.info(jobs)
+        if len(jobs) == 0:
+            jhcfg.cmd_logger.warning("No jobs to run")
+            return
+        if not dry:
+            proj_fn = (
+                jhcfg.project_log_dir / f"{jobs[list(jobs.keys())[0]].job_id}.json"
+            )
+            with proj_fn.open("w") as fp:
+                print(self._output(jobs).model_dump_json(), file=fp)
+            jhcfg.cmd_logger.info(f"Running project {proj_fn}")
+
+    def _output(self, jobs) -> ProjectOutput:
+        return ProjectOutput(
+            jobs={k: v.job_id for k, v in jobs.items()},
+            config=self.config,
+        )
 
     def jobflow(
         self,

@@ -1,5 +1,6 @@
 log_dir = "tests/log/"
 job_log_dir = "tests/log/jobs"
+project_log_dir = "tests/log/projects"
 console_width = 120
 
 [commands]
