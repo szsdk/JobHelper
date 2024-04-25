@@ -9,7 +9,7 @@ import urllib.request
 import zlib
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, ClassVar, Union
 
 import toml
 import yaml
@@ -34,7 +34,7 @@ def _get_slurm_config(
     return ans
 
 
-class ShellCommand(BaseModel):
+class ShellCommand(PDArgBase):
     sh: str
 
     def slurm(self) -> Slurm:
@@ -87,14 +87,101 @@ class SlurmConfig(BaseModel):
         return v
 
 
-class JobConfig(BaseModel):
+class JobConfig(PDArgBase):
     command: str
     config: dict[str, Any]
     slurm_config: SlurmConfig = SlurmConfig()
 
 
-class ProjectConfig(BaseModel):
+def flowchart(nodes: dict[str, str], links: dict[tuple[str, str], str]):
+    node_styles = {
+        "norun": "classDef norun fill:#ddd,stroke:#aaa,stroke-width:3px,stroke-dasharray: 5 5",
+        "failed": "classDef failed fill:#eaa,stroke:#e44",
+        "completed": "classDef completed fill:#aea,stroke:#4a4",
+    }
+    link_styles = {
+        "after": "--o",
+        "afterany": "-.-o",
+        "afternotok": "-.-x",
+        "afterok": "-->",
+    }
+
+    flow = ["flowchart TD"]
+    for (job_a, job_b), link in links.items():
+        a = job_a if job_a not in nodes else f"{job_a}:::{nodes[job_a]}"
+        b = job_b if job_b not in nodes else f"{job_b}:::{nodes[job_b]}"
+        flow.append(f"    {a} {link_styles[link]} {b}")
+    flow.extend(list(node_styles.values()))
+    return "\n".join(flow)
+
+
+def render_chart(chart: str, output_fn: str):
+    if output_fn == "-":
+        print(chart)
+        return
+    output = Path(output_fn)
+    url = base64.urlsafe_b64encode(zlib.compress(chart.encode(), 9)).decode("ascii")
+    if output.suffix == ".png":
+        url = "https://kroki.io/mermaid/png/" + url
+    elif output.suffix == ".svg":
+        url = "https://kroki.io/mermaid/svg/" + url
+    else:
+        raise ValueError(f"Unsupported output format: {output.suffix}")
+    print(url)
+    hdr = {"User-Agent": "Mozilla/5.0"}
+    req = urllib.request.Request(url, headers=hdr)
+    with urllib.request.urlopen(req) as response, output.open("wb") as fp:
+        fp.write(response.read())
+
+
+class ProjectConfig(PDArgBase):
     jobs: dict[str, JobConfig]
+    node_styles: ClassVar[dict[str, str]] = {
+        "norun": "classDef norun fill:#ddd,stroke:#aaa,stroke-width:3px,stroke-dasharray: 5 5"
+    }
+
+    def _get_job_torun(self, joblist, run_following) -> dict[str, JobConfig]:
+        jobs = copy.deepcopy(self.jobs)
+        jl = {}
+        for j in joblist.split(";"):
+            jl[j] = jobs.pop(j, None)
+        if not run_following:
+            if "START" in jl:
+                del jl["START"]
+            return jl
+        while True:
+            changed = False
+            for jobname, job in jobs.items():
+                if job.slurm_config is None:
+                    continue
+                for d in job.slurm_config.dependency:
+                    if d in jl:
+                        jl[jobname] = jobs.pop(jobname)
+                        changed = True
+                        break
+                if changed:
+                    break
+            if not changed:
+                break
+        if "START" in jl:
+            del jl["START"]
+        return jl
+
+    def jobflow(
+        self,
+        reruns: str = "START",
+        run_following: bool = True,
+        output_fn="-",
+    ):
+        jobs_torun = self._get_job_torun(reruns, run_following)
+        nodes = {k: "norun" for k in self.jobs.keys() if k not in jobs_torun}
+        links = {
+            (job_a, job_b): link_type
+            for job_b, job in self.jobs.items()
+            for link_type in ["afterok", "after", "afternotok", "afterany"]
+            for job_a in getattr(job.slurm_config.dependency, link_type)
+        }
+        render_chart(flowchart(nodes, links), output_fn)
 
 
 class JobComboArg(ProjectArgBase):
@@ -122,18 +209,13 @@ class JobComboArg(ProjectArgBase):
         return Slurm(run_cmd="\n".join(cmds))
 
 
-def _add_default_commands(v):
-    for cmd in ["job_combo", "shell"]:
-        if cmd in v:
-            raise ValueError(f"{cmd} is reserved.")
-    v.update({"job_combo": JobComboArg, "shell": ShellCommand})
-    return v
-
-
 def _get_commands():
-    return _add_default_commands(
-        {cmd: pydoc.locate(arg_class) for cmd, arg_class in jhcfg.commands.items()}
-    )
+    ans = {}
+    for cmd, arg_class in jhcfg.commands.items():
+        arg = pydoc.locate(arg_class)
+        if isinstance(arg, type) and issubclass(arg, PDArgBase):
+            ans[cmd] = arg
+    return ans
 
 
 class ProjectOutput(BaseModel):
@@ -142,14 +224,20 @@ class ProjectOutput(BaseModel):
     time: datetime = Field(default_factory=datetime.now)
 
 
-class Project(PDArgBase):
-    commands: dict[str, type[PDArgBase]] = Field(default_factory=_get_commands)
+class Project(BaseModel):
+    commands: dict[str, type[PDArgBase]] = Field(
+        default_factory=_get_commands, validate_default=True
+    )
     config: ProjectConfig
 
-    @field_validator("commands")
+    @field_validator("commands", mode="after")
     @classmethod
     def add_default_commands(cls, v):
-        return _add_default_commands(v)
+        for cmd in ["job_combo", "shell"]:
+            if cmd in v:
+                raise ValueError(f"{cmd} is reserved.")
+        v.update({"job_combo": JobComboArg, "shell": ShellCommand})
+        return v
 
     @field_validator("config", mode="before")
     def config_from_file(cls, v):
@@ -167,33 +255,6 @@ class Project(PDArgBase):
     def __getitem__(self, key):
         logging.info(f"commands: {self.commands}")
         return self.commands[key]
-
-    def _get_job_torun(self, joblist, run_following) -> dict[str, JobConfig]:
-        jobs = copy.deepcopy(self.config.jobs)
-        jl = {}
-        for j in joblist.split(";"):
-            jl[j] = jobs.pop(j, None)
-        if not run_following:
-            if "START" in jl:
-                del jl["START"]
-            return jl
-        while True:
-            changed = False
-            for jobname, job in jobs.items():
-                if job.slurm_config is None:
-                    continue
-                for d in job.slurm_config.dependency:
-                    if d in jl:
-                        jl[jobname] = jobs.pop(jobname)
-                        changed = True
-                        break
-                if changed:
-                    break
-            if not changed:
-                break
-        if "START" in jl:
-            del jl["START"]
-        return jl
 
     def _run_jobs(self, jobs, jobs_torun: dict[str, JobConfig], dry: bool):
         while len(jobs_torun) > 0:
@@ -217,7 +278,7 @@ class Project(PDArgBase):
     def run(
         self, reruns: str = "START", run_following: bool = True, dry: bool = True
     ) -> None:
-        jobs_torun = self._get_job_torun(reruns, run_following)
+        jobs_torun = self.config._get_job_torun(reruns, run_following)
         jobs = self._run_jobs({}, jobs_torun, dry)
         if len(jobs) == 0:
             jhcfg.cmd_logger.warning("No jobs to run")
@@ -237,46 +298,6 @@ class Project(PDArgBase):
         )
 
     def jobflow(
-        self,
-        reruns: str = "START",
-        run_following: bool = True,
-        output_fn="-",
+        self, reruns: str = "START", run_following: bool = True, output_fn: str = "-"
     ):
-        jobs_torun = self._get_job_torun(reruns, run_following)
-        flow = ["flowchart TD"]
-        for job_name, job in self.config.jobs.items():
-            node_j = job_name if job_name in jobs_torun else f"{job_name}:::norun"
-            for d in job.slurm_config.dependency.afterok:
-                node_d = d if d in jobs_torun else f"{d}:::norun"
-                flow.append(f"    {node_d} --> {node_j}")
-            for d in job.slurm_config.dependency.after:
-                node_d = d if d in jobs_torun else f"{d}:::norun"
-                flow.append(f"    {node_d} --o {node_j}")
-            for d in job.slurm_config.dependency.afternotok:
-                node_d = d if d in jobs_torun else f"{d}:::norun"
-                flow.append(f"    {node_d} -.-x {node_j}")
-            for d in job.slurm_config.dependency.afterany:
-                node_d = d if d in jobs_torun else f"{d}:::norun"
-                flow.append(f"    {node_d} -.-o {node_j}")
-        flow.append(
-            "classDef norun fill:#ddd,stroke:#aaa,stroke-width:3px,stroke-dasharray: 5 5"
-        )
-        flow_src = "\n".join(flow)
-        if output_fn == "-":
-            print(flow_src)
-        else:
-            output_fn = Path(output_fn)
-            url = base64.urlsafe_b64encode(zlib.compress(flow_src.encode(), 9)).decode(
-                "ascii"
-            )
-            if output_fn.suffix == ".png":
-                url = "https://kroki.io/mermaid/png/" + url
-            elif output_fn.suffix == ".svg":
-                url = "https://kroki.io/mermaid/svg/" + url
-            else:
-                raise ValueError(f"Unsupported output format: {output_fn.suffix}")
-            print(url)
-            hdr = {"User-Agent": "Mozilla/5.0"}
-            req = urllib.request.Request(url, headers=hdr)
-            with urllib.request.urlopen(req) as response, output_fn.open("wb") as fp:
-                fp.write(response.read())
+        self.config.jobflow(reruns, run_following, output_fn)

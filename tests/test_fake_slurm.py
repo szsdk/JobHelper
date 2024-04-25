@@ -1,11 +1,17 @@
+import subprocess
 from datetime import datetime
+
+import pytest
+from job_helper import jhcfg
+from job_helper.slurm_helper import parse_sacct_output
 
 import tests.fake_slurm as fs
 from tests.fake_slurm import JobInfo
 
 
-def test_sacct():
-    init_state = fs.ServerState(
+@pytest.fixture
+def init_state():
+    return fs.ServerState(
         jobs={
             1: JobInfo(
                 JobID=1,
@@ -18,5 +24,16 @@ def test_sacct():
         },
         job_id=3,
     )
+
+
+def test_sacct(init_state):
+    print(jhcfg.slurm.sacct_cmd)
     with fs.SlurmServer(init_state):
-        assert fs.sacct(jobs=[1, 2, 3]) == init_state
+        result = subprocess.run(
+            " ".join([jhcfg.slurm.sacct_cmd, "--jobs", "1,2"]),
+            shell=True,
+            stdout=subprocess.PIPE,
+        )
+        assert parse_sacct_output(result.stdout.decode()) == [
+            init_state.jobs[i] for i in [1, 2]
+        ]

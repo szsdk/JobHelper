@@ -201,7 +201,7 @@ def sacct(
     response = client(QueryHistoryCommand(), type_adapter=TypeAdapter(ServerState))
     assert isinstance(response, ServerState)
     print(_format_jobs(response.jobs[i] for i in jobs))
-    return response
+    # return response
 
 
 if __name__ == "__main__":

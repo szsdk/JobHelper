@@ -24,11 +24,8 @@ class CmdLoggerFileFormatter(logging.Formatter):
 
 class SlurmConfig(BaseModel):
     shell: str = "/bin/sh"
-    sthell: str = "/bin/sh"
     sbatch_cmd: str = "sbatch"
-    shell: str = "/bin/sh"
-    sbatch_cmd: str = "sbatch"
-    sbatch_cmd: str = "sbatch"
+    sacct_cmd: str = "sacct"
 
 
 class JobHelperConfig(BaseModel):

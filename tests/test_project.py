@@ -5,7 +5,8 @@ import urllib.error
 import numpy as np
 import pytest
 import yaml
-from job_helper import Project
+from job_helper import Project, ProjectConfig
+from job_helper.project_helper import flowchart, render_chart
 
 from tests.fake_slurm import SlurmServer, sacct
 
@@ -67,8 +68,29 @@ def test_project_load(project_cfg, tmp_path):
 def test_jobflow(output_fn, project_cfg, tmp_path):
     print(str(tmp_path / output_fn))
     try:
-        Project(config=yaml.safe_load(project_cfg)).jobflow(
+        ProjectConfig.model_validate(yaml.safe_load(project_cfg)).jobflow(
             output_fn="-" if output_fn == "-" else str(tmp_path / output_fn)
+        )
+    except urllib.error.HTTPError as e:
+        err = e.read().decode()
+        if "400" in err:
+            pytest.skip(err)
+        else:
+            raise e
+
+
+def test_flowchart(tmp_path):
+    try:
+        render_chart(
+            flowchart(
+                nodes={
+                    "job_1": "norun",
+                    "job_2": "failed",
+                    "job_3": "completed",
+                },
+                links={("job_1", "job_3"): "afterok", ("job_2", "job_3"): "afterany"},
+            ),
+            tmp_path / "t.png",
         )
     except urllib.error.HTTPError as e:
         err = e.read().decode()
@@ -83,9 +105,6 @@ def test_project(project_cfg):
     data = np.arange(project_1.config.jobs["generate_data"].config["count"])
     with SlurmServer():
         project_1.run(dry=False)
-        sacct()
-        time.sleep(0.6)
-        sacct()
 
     np.testing.assert_array_equal(
         np.loadtxt(

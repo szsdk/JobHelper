@@ -53,7 +53,7 @@ def parse_sacct_output(s) -> list[JobInfo]:
         return []
     header = lines[0].split("|")
     ans = []
-    for line in lines[2:]:
+    for line in lines[1:]:
         ans.append(JobInfo(**dict(zip(header, line.split("|")))))
     return ans
 
