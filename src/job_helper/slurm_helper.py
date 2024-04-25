@@ -3,13 +3,12 @@ from __future__ import annotations
 import datetime
 import logging
 import os
-import shlex
 import subprocess
 import sys
-import tarfile
-from typing import Optional
+from datetime import datetime
+from typing import Literal, Optional, Union
 
-from pydantic import BaseModel, Field, computed_field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
 from .config import JobHelperConfig, jhcfg
 
@@ -38,6 +37,25 @@ cat log/cmd.log | fzf
 _env0 = (  # noqa: E402
     os.environ.copy()
 )  # It should be before importing other modules, especially `mpi4py`.
+
+
+class JobInfo(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    JobID: int
+    State: str
+    Start: Union[datetime, Literal["Unknown"]] = "Unknown"
+    End: Union[datetime, Literal["Unknown"]] = "Unknown"
+
+
+def parse_sacct_output(s) -> list[JobInfo]:
+    lines = s.splitlines()
+    if len(lines) < 2:
+        return []
+    header = lines[0].split("|")
+    ans = []
+    for line in lines[2:]:
+        ans.append(JobInfo(**dict(zip(header, line.split("|")))))
+    return ans
 
 
 class Slurm(BaseModel):

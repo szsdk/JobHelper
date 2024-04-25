@@ -1,14 +1,18 @@
+import base64
 import json
 import logging
 import subprocess
 import sys
 import time
+import zlib
+from datetime import datetime
 from queue import Empty, Queue
 from threading import Event, Thread
 from typing import Literal, Optional, Union
 
 import zmq
-from pydantic import BaseModel, ConfigDict, TypeAdapter
+from job_helper.slurm_helper import JobInfo
+from pydantic import BaseModel, Field, TypeAdapter, validate_call
 
 
 class SubmitCommand(BaseModel):
@@ -39,46 +43,46 @@ class ErrorResponse(BaseModel):
     error: str
 
 
-class JobInfo(BaseModel):
-    job_id: int
-    returncode: Optional[int] = None
-    script: str
-    status: Literal["pending", "running", "finished"]
-    start_time: Optional[float] = None
-    end_time: Optional[float] = None
-
-
-class SacctResponse(BaseModel):
-    job_history: dict[int, JobInfo]
+class ServerState(BaseModel):
+    job_id: int = 0
+    jobs: dict[int, JobInfo] = Field(default_factory=dict)
 
 
 Command = Union[SubmitCommand, StopCommand, FinishCommand, QueryHistoryCommand]
 
-Response = Union[SbatchResponse, ServerStatusResponse, ErrorResponse, SacctResponse]
+Response = Union[ServerState, SbatchResponse, ServerStatusResponse, ErrorResponse]
 
 
-def client(command: Command) -> Response:
+def client(command: Command, type_adapter=TypeAdapter(Response)) -> Response:
     context = zmq.Context()
     socket = context.socket(zmq.REQ)
     socket.connect("tcp://localhost:5555")
 
     socket.send(command.model_dump_json().encode())
 
-    return TypeAdapter(Response).validate_json(json.loads(socket.recv().decode()))
+    return type_adapter.validate_json(json.loads(socket.recv().decode()))
 
 
-def worker(job_queue, job_history, stop_event, finish_event):
+def to_base64(obj: BaseModel) -> str:
+    return base64.b64encode(zlib.compress(obj.model_dump_json().encode(), 9)).decode()
+
+
+def from_base64(s: str) -> str:
+    return zlib.decompress(base64.b64decode(s.encode())).decode()
+
+
+def worker(job_queue, jobs: dict[int, JobInfo], stop_event, finish_event):
     while not stop_event.is_set():
         if finish_event.is_set() and job_queue.empty():
             break
         try:
             job_id, script = job_queue.get(timeout=1)
-            job = job_history[job_id]
-            job.status = "running"
-            job.start_time = time.time()
+            job = jobs[job_id]
+            job.State = "RUNNING"
+            job.Start = datetime.now()
             result = subprocess.run(script, shell=True, executable="/bin/bash")
-            job.end_time = time.time()
-            job.returncode = result.returncode
+            job.End = datetime.now()
+            job.State = "COMPLETED" if result.returncode == 0 else "FAILED"
         except Empty:
             continue
 
@@ -87,21 +91,23 @@ def send_response(socket, response):
     socket.send(json.dumps(response.model_dump_json()).encode())
 
 
-def server():
+def server(init_state: Optional[str] = None):
     context = zmq.Context()
     socket = context.socket(zmq.REP)
     socket.bind("tcp://*:5555")
 
-    job_history = {}
+    if init_state is None:
+        server_state = ServerState()
+    else:
+        server_state = ServerState.model_validate_json(from_base64(init_state))
+
     job_queue = Queue()
     stop_event = Event()
     finish_event = Event()
     thread = Thread(
-        target=worker, args=(job_queue, job_history, stop_event, finish_event)
+        target=worker, args=(job_queue, server_state.jobs, stop_event, finish_event)
     )
     thread.start()
-
-    job_id = 0
 
     while True:
         message = socket.recv().decode()
@@ -112,17 +118,16 @@ def server():
             continue
 
         if isinstance(command, SubmitCommand):
-            job_id += 1
+            server_state.job_id += 1
+            job_id = server_state.job_id
             logging.info(f"Received script for Job ID {job_id}")
             job_queue.put((job_id, command.script))
 
-            job_history[job_id] = JobInfo(
-                job_id=job_id, script=command.script, status="pending"
-            )
+            server_state.jobs[job_id] = JobInfo(JobID=job_id, State="PENDING")
 
             send_response(socket, SbatchResponse(job_id=job_id))
         elif isinstance(command, QueryHistoryCommand):
-            send_response(socket, SacctResponse(job_history=job_history))
+            send_response(socket, server_state)
         elif isinstance(command, StopCommand):
             stop_event.set()
             thread.join()
@@ -138,12 +143,22 @@ def server():
 
     socket.close()
     context.term()
-    print(job_history)
 
 
 class SlurmServer:
+    def __init__(self, init_state: ServerState = ServerState()):
+        self.init_state = init_state
+
     def __enter__(self):
-        self.p = subprocess.Popen(["python", "tests/fake_slurm.py", "server"])
+        self.p = subprocess.Popen(
+            [
+                "python",
+                "tests/fake_slurm.py",
+                "server",
+                "--init-state",
+                to_base64(self.init_state),
+            ]
+        )
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         client(FinishCommand())
@@ -151,7 +166,10 @@ class SlurmServer:
 
 
 def sbatch(parsable: bool = False):
-    response = client(SubmitCommand(script="".join([line for line in sys.stdin])))
+    response = client(
+        SubmitCommand(script="".join([line for line in sys.stdin])),
+        type_adapter=TypeAdapter(SbatchResponse),
+    )
     assert isinstance(response, SbatchResponse)
     if parsable:
         print(response.job_id)
@@ -159,8 +177,31 @@ def sbatch(parsable: bool = False):
         print(f"Submitted batch job {response.job_id}")
 
 
-def sacct():
-    print(client(QueryHistoryCommand()))
+def _format_jobs(jobs):
+    ans = []
+    ans.append("|".join([i for i in JobInfo.__annotations__]))
+    for job in jobs:
+        terms = []
+        for k in JobInfo.__annotations__:
+            v = getattr(job, k)
+            if isinstance(v, datetime):
+                v = v.isoformat()
+            terms.append(str(v))
+        ans.append("|".join(terms))
+    return "\n".join(ans)
+
+
+@validate_call
+def sacct(
+    jobs: list[int],
+    format: str = "jobid,jobname,start,end,state,partition,AllocCPUS,elapse",
+    allocations: bool = False,
+    parsable2: bool = False,
+):
+    response = client(QueryHistoryCommand(), type_adapter=TypeAdapter(ServerState))
+    assert isinstance(response, ServerState)
+    print(_format_jobs(response.jobs[i] for i in jobs))
+    return response
 
 
 if __name__ == "__main__":
