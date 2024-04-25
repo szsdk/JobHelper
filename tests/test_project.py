@@ -1,4 +1,5 @@
 import json
+import time
 import urllib.error
 
 import numpy as np
@@ -6,7 +7,7 @@ import pytest
 import yaml
 from job_helper import Project
 
-from tests.fake_slurm import SlurmServer
+from tests.fake_slurm import SlurmServer, sacct
 
 
 @pytest.fixture(scope="session")
@@ -82,6 +83,9 @@ def test_project(project_cfg):
     data = np.arange(project_1.config.jobs["generate_data"].config["count"])
     with SlurmServer():
         project_1.run(dry=False)
+        sacct()
+        time.sleep(0.6)
+        sacct()
 
     np.testing.assert_array_equal(
         np.loadtxt(

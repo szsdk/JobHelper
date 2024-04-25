@@ -81,7 +81,9 @@ class Slurm(BaseModel):
         If `dry` is True, it only prints the script. Otherwise (--nodry), it submits the job.
         """
         sbatch_cmd = jhcfg.slurm.sbatch_cmd
-        slurm_script = "\n".join([f'{sbatch_cmd} << "EOF"', self.script, "EOF"])
+        slurm_script = "\n".join(
+            [f'{sbatch_cmd} --parsable << "EOF"', self.script, "EOF"]
+        )
         print(self.script)
         if dry:
             logging.info("It is a dry run.")
@@ -90,13 +92,12 @@ class Slurm(BaseModel):
         result = subprocess.run(
             slurm_script, shell=True, stdout=subprocess.PIPE, env=_env0
         )
-        success_msg = "Submitted batch job"
         stdout = result.stdout.decode("utf-8").strip()
-        if success_msg not in stdout:
+        if result.returncode != 0:
             logging.error(result.stderr)
             sys.exit(1)
-        self.job_id = int(stdout.split(" ")[3])
-        jhcfg.cmd_logger.info(stdout)
+        self.job_id = int(stdout)
+        jhcfg.cmd_logger.info("Submitted batch job %s", stdout)
         if save_script:
             with (jhcfg.job_log_dir / f"{self.job_id}_slurm.sh").open("w") as fp:
                 print(self.script, file=fp)

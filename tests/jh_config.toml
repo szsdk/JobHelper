@@ -11,4 +11,4 @@ tools = "job_helper.tools"
 
 [slurm]
 shell = "/bin/sh"
-sbatch_cmd = "python tests/fake_slurm.py client"
+sbatch_cmd = "python tests/fake_slurm.py sbatch"
