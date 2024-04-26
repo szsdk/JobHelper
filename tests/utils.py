@@ -4,6 +4,8 @@ import pytest
 from job_helper import jhcfg
 from pydantic import BaseModel
 
+from tests.fake_slurm import SlurmServer
+
 
 class MockJhcfg:
     def __init__(self, /, **kwargs):
@@ -43,3 +45,9 @@ def testing_jhcfg(tmp_path):
         ),
     ):
         yield
+
+
+@pytest.fixture
+def slurm_server():
+    with SlurmServer() as s:
+        yield s

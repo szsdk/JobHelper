@@ -27,7 +27,7 @@ class FinishCommand(BaseModel):
     cmd: Literal["finish"] = "finish"
 
 
-class QueryHistoryCommand(BaseModel):
+class QueryStateCommand(BaseModel):
     cmd: Literal["query_history"] = "query_history"
 
 
@@ -48,7 +48,7 @@ class ServerState(BaseModel):
     jobs: dict[int, JobInfo] = Field(default_factory=dict)
 
 
-Command = Union[SubmitCommand, StopCommand, FinishCommand, QueryHistoryCommand]
+Command = Union[SubmitCommand, StopCommand, FinishCommand, QueryStateCommand]
 
 Response = Union[ServerState, SbatchResponse, ServerStatusResponse, ErrorResponse]
 
@@ -126,7 +126,7 @@ def server(init_state: Optional[str] = None):
             server_state.jobs[job_id] = JobInfo(JobID=job_id, State="PENDING")
 
             send_response(socket, SbatchResponse(job_id=job_id))
-        elif isinstance(command, QueryHistoryCommand):
+        elif isinstance(command, QueryStateCommand):
             send_response(socket, server_state)
         elif isinstance(command, StopCommand):
             stop_event.set()
@@ -149,6 +149,19 @@ class SlurmServer:
     def __init__(self, init_state: ServerState = ServerState()):
         self.init_state = init_state
 
+    def complete_all(self):
+        while True:
+            response = client(
+                QueryStateCommand(), type_adapter=TypeAdapter(ServerState)
+            )
+            assert isinstance(response, ServerState)
+            if any(
+                job.State in {"PENDING", "RUNNING"} for job in response.jobs.values()
+            ):
+                time.sleep(0.1)
+            else:
+                break
+
     def __enter__(self):
         self.p = subprocess.Popen(
             [
@@ -159,6 +172,7 @@ class SlurmServer:
                 to_base64(self.init_state),
             ]
         )
+        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         client(FinishCommand())
@@ -198,7 +212,7 @@ def sacct(
     allocations: bool = False,
     parsable2: bool = False,
 ):
-    response = client(QueryHistoryCommand(), type_adapter=TypeAdapter(ServerState))
+    response = client(QueryStateCommand(), type_adapter=TypeAdapter(ServerState))
     assert isinstance(response, ServerState)
     print(_format_jobs(response.jobs[i] for i in jobs))
     # return response
