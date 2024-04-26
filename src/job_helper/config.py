@@ -67,9 +67,9 @@ class JobHelperConfig(BaseModel):
     log_dir: Path = Field(Path("log"), validate_default=True)
     console_width: int = 120
     commands: dict[str, str] = Field(default_factory=dict)
-    slurm: SlurmConfig = SlurmConfig()
-    repo_watcher: RepoWatcherConfig = RepoWatcherConfig()
-    project: ProjectConfig = ProjectConfig()
+    slurm: SlurmConfig = Field(default_factory=SlurmConfig)
+    repo_watcher: RepoWatcherConfig = Field(default_factory=RepoWatcherConfig)
+    project: ProjectConfig = Field(default_factory=ProjectConfig)
 
     @field_validator("log_dir")
     @classmethod
