@@ -1,6 +1,6 @@
 import json
-import time
 import urllib.error
+from pathlib import Path
 
 import numpy as np
 import pytest

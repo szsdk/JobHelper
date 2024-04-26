@@ -7,7 +7,14 @@ from pathlib import Path
 from typing import Any, ClassVar, Dict, Optional, Protocol, Self, TypeVar, Union
 
 import toml
-from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    DirectoryPath,
+    Field,
+    computed_field,
+    field_validator,
+)
 from rich.console import Console as _Console
 from rich.logging import RichHandler as _RichHandler
 
@@ -22,10 +29,32 @@ class CmdLoggerFileFormatter(logging.Formatter):
         return super().format(record)
 
 
+class RepoWatcherConfig(BaseModel):
+    repos: list[DirectoryPath] = Field(default_factory=list)
+
+
 class SlurmConfig(BaseModel):
     shell: str = "/bin/sh"
     sbatch_cmd: str = "sbatch"
     sacct_cmd: str = "sacct"
+    log_dir: Path = Field(Path("log/jobs"), validate_default=True)
+
+    @field_validator("log_dir")
+    @classmethod
+    def dir_exists(cls, v: Path) -> Path:
+        v.mkdir(parents=True, exist_ok=True)
+        return v
+
+
+class ProjectConfig(BaseModel):
+    watch_repos: bool = True
+    log_dir: Path = Field(Path("log/projects"), validate_default=True)
+
+    @field_validator("log_dir")
+    @classmethod
+    def dir_exists(cls, v: Path) -> Path:
+        v.mkdir(parents=True, exist_ok=True)
+        return v
 
 
 class JobHelperConfig(BaseModel):
@@ -36,13 +65,13 @@ class JobHelperConfig(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     _instance: ClassVar[Optional[Self]] = None
     log_dir: Path = Field(Path("log"), validate_default=True)
-    job_log_dir: Path = Field(Path("log/jobs"), validate_default=True)
-    project_log_dir: Path = Field(Path("log/projects"), validate_default=True)
     console_width: int = 120
-    slurm: SlurmConfig = SlurmConfig()
     commands: dict[str, str] = Field(default_factory=dict)
+    slurm: SlurmConfig = SlurmConfig()
+    repo_watcher: RepoWatcherConfig = RepoWatcherConfig()
+    project: ProjectConfig = ProjectConfig()
 
-    @field_validator("log_dir", "job_log_dir", "project_log_dir")
+    @field_validator("log_dir")
     @classmethod
     def dir_exists(cls, v: Path) -> Path:
         v.mkdir(parents=True, exist_ok=True)

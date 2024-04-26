@@ -16,7 +16,9 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .arg import PDArgBase
+from .config import ProjectConfig as JHProjectConfig
 from .config import jhcfg
+from .repo_watcher import RepoState
 from .slurm_helper import Slurm
 
 
@@ -222,6 +224,7 @@ class ProjectOutput(BaseModel):
     config: ProjectConfig
     jobs: dict[str, int]
     time: datetime = Field(default_factory=datetime.now)
+    repo_states: dict[str, RepoState] = Field(default_factory=dict)
 
 
 class Project(BaseModel):
@@ -229,6 +232,9 @@ class Project(BaseModel):
         default_factory=_get_commands, validate_default=True
     )
     config: ProjectConfig
+    jh_config: JHProjectConfig = Field(
+        default_factory=lambda: copy.deepcopy(jhcfg.project)
+    )
 
     @field_validator("commands", mode="after")
     @classmethod
@@ -285,16 +291,23 @@ class Project(BaseModel):
             return
         if not dry:
             proj_fn = (
-                jhcfg.project_log_dir / f"{jobs[list(jobs.keys())[0]].job_id}.json"
+                self.jh_config.log_dir / f"{jobs[list(jobs.keys())[0]].job_id}.json"
             )
             with proj_fn.open("w") as fp:
                 print(self._output(jobs).model_dump_json(), file=fp)
             jhcfg.cmd_logger.info(f"Running project {proj_fn}")
 
     def _output(self, jobs) -> ProjectOutput:
+        if self.jh_config.watch_repos:
+            repo_states = {
+                str(p): RepoState.from_folder(p) for p in jhcfg.repo_watcher.repos
+            }
+        else:
+            repo_states = {}
         return ProjectOutput(
             jobs={k: v.job_id for k, v in jobs.items()},
             config=self.config,
+            repo_states=repo_states,
         )
 
     def jobflow(

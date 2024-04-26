@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import datetime
 import logging
 import os
@@ -11,6 +12,7 @@ from typing import Literal, Optional, Union
 from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
 from .config import JobHelperConfig, jhcfg
+from .config import SlurmConfig as JHSlurmConfig
 
 __all__ = [
     "Slurm",
@@ -66,13 +68,14 @@ class Slurm(BaseModel):
     run_cmd: str
     job_id: Optional[int] = None
     config: dict[str, str] = Field(default_factory=dict, validate_default=True)
+    jh_config: JHSlurmConfig = Field(default_factory=lambda: copy.deepcopy(jhcfg.slurm))
 
     @field_validator("config", mode="before")
     @classmethod
     def default_and_replace_underscore(cls, v):
         v = {k.replace("_", "-"): v for k, v in v.items()}
         if "output" not in v:
-            v["output"] = f"{jhcfg.job_log_dir}/%j.out"
+            v["output"] = f"{jhcfg.slurm.log_dir}/%j.out"
         return v
 
     def set_slurm(self, **kwargs: str) -> Slurm:
@@ -117,7 +120,7 @@ class Slurm(BaseModel):
         self.job_id = int(stdout)
         jhcfg.cmd_logger.info("Submitted batch job %s", stdout)
         if save_script:
-            with (jhcfg.job_log_dir / f"{self.job_id}_slurm.sh").open("w") as fp:
+            with (self.jh_config.log_dir / f"{self.job_id}_slurm.sh").open("w") as fp:
                 print(self.script, file=fp)
         return self
 
