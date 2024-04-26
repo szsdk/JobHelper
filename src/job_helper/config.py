@@ -62,7 +62,7 @@ class JobHelperConfig(BaseModel):
     This is a singleton class for storing global variables.
     """
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
     _instance: ClassVar[Optional[Self]] = None
     log_dir: Path = Field(Path("log"), validate_default=True)
     console_width: int = 120

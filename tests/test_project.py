@@ -1,6 +1,7 @@
 import json
 import urllib.error
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -9,6 +10,20 @@ from job_helper import Project, ProjectConfig
 from job_helper.project_helper import flowchart, render_chart
 
 from tests.fake_slurm import SlurmServer, sacct
+from tests.utils import testing_jhcfg
+
+
+@pytest.fixture
+def jhcfg_mock(tmp_path):
+    with MockJhcfg(
+        project={"log_dir": tmp_path / "log" / "project"},
+        slurm={
+            "log_dir": tmp_path / "log" / "job",
+            "sbatch_cmd": "python tests/fake_slurm.py sbatch",
+            "sacct_cmd": "python tests/fake_slurm.py sacct",
+        },
+    ):
+        yield
 
 
 @pytest.fixture(scope="session")
@@ -100,8 +115,10 @@ def test_flowchart(tmp_path):
             raise e
 
 
-def test_project(project_cfg):
-    project_1 = Project(config=yaml.safe_load(project_cfg))
+def test_project(project_cfg, testing_jhcfg, tmp_path):
+    project_1 = Project(
+        config=yaml.safe_load(project_cfg),
+    )
     data = np.arange(project_1.config.jobs["generate_data"].config["count"])
     with SlurmServer():
         project_1.run(dry=False)

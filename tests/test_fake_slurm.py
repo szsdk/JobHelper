@@ -7,10 +7,11 @@ from job_helper.slurm_helper import parse_sacct_output
 
 import tests.fake_slurm as fs
 from tests.fake_slurm import JobInfo
+from tests.utils import testing_jhcfg
 
 
 @pytest.fixture
-def init_state():
+def init_state(testing_jhcfg):
     return fs.ServerState(
         jobs={
             1: JobInfo(
