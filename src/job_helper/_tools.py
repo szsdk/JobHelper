@@ -126,10 +126,8 @@ def log_message(message: str, level: str = "info") -> None:
 
 
 tools = {
-    "log_cmd": log_cmd,
     "log_sh": log_sh,
     "log_message": log_message,
-    "git_status": git_status,
     "force_commit": force_commit,
     "compress_log": compress_log,
 }

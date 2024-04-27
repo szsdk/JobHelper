@@ -4,19 +4,27 @@ import logging
 import os
 from functools import cached_property
 from pathlib import Path
-from typing import Any, ClassVar, Dict, Optional, Protocol, Self, TypeVar, Union
+from typing import Annotated, ClassVar, Optional, Self
 
 import toml
 from pydantic import (
     BaseModel,
+    BeforeValidator,
     ConfigDict,
     DirectoryPath,
     Field,
     computed_field,
-    field_validator,
 )
 from rich.console import Console as _Console
 from rich.logging import RichHandler as _RichHandler
+
+
+def dir_exists(v: Path) -> Path:
+    v.mkdir(parents=True, exist_ok=True)
+    return v
+
+
+DirExists = Annotated[DirectoryPath, BeforeValidator(dir_exists)]
 
 
 class CmdLoggerFileFormatter(logging.Formatter):
@@ -37,24 +45,12 @@ class SlurmConfig(BaseModel):
     shell: str = "/bin/sh"
     sbatch_cmd: str = "sbatch"
     sacct_cmd: str = "sacct"
-    log_dir: Path = Field(Path("log/jobs"), validate_default=True)
-
-    @field_validator("log_dir")
-    @classmethod
-    def dir_exists(cls, v: Path) -> Path:
-        v.mkdir(parents=True, exist_ok=True)
-        return v
+    log_dir: DirExists = Field(Path("log/jobs"), validate_default=True)
 
 
 class ProjectConfig(BaseModel):
     watch_repos: bool = True
-    log_dir: Path = Field(Path("log/projects"), validate_default=True)
-
-    @field_validator("log_dir")
-    @classmethod
-    def dir_exists(cls, v: Path) -> Path:
-        v.mkdir(parents=True, exist_ok=True)
-        return v
+    log_dir: DirExists = Field(Path("log/projects"), validate_default=True)
 
 
 class JobHelperConfig(BaseModel):
@@ -64,18 +60,12 @@ class JobHelperConfig(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
     _instance: ClassVar[Optional[Self]] = None
-    log_dir: Path = Field(Path("log"), validate_default=True)
+    log_dir: DirExists = Field(Path("log"), validate_default=True)
     console_width: int = 120
     commands: dict[str, str] = Field(default_factory=dict)
     slurm: SlurmConfig = Field(default_factory=SlurmConfig)
     repo_watcher: RepoWatcherConfig = Field(default_factory=RepoWatcherConfig)
     project: ProjectConfig = Field(default_factory=ProjectConfig)
-
-    @field_validator("log_dir")
-    @classmethod
-    def dir_exists(cls, v: Path) -> Path:
-        v.mkdir(parents=True, exist_ok=True)
-        return v
 
     def model_post_init(self, _):
         if JobHelperConfig._instance is not None:
