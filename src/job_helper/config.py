@@ -4,7 +4,7 @@ import logging
 import os
 from functools import cached_property
 from pathlib import Path
-from typing import Annotated, ClassVar, Optional, Self
+from typing import Annotated, ClassVar, Optional, Self, Union
 
 import toml
 from pydantic import (
@@ -20,7 +20,8 @@ from rich.console import Console as _Console
 from rich.logging import RichHandler as _RichHandler
 
 
-def dir_exists(v: Path) -> Path:
+def dir_exists(v: Union[str, Path]) -> Path:
+    v = Path(v)
     v.mkdir(parents=True, exist_ok=True)
     return v
 
@@ -43,7 +44,8 @@ class CLIConfig(BaseModel):
     log_file: Path = Field(Path("log/cmd.log"), validate_default=True)
 
     @field_validator("log_file", mode="before")
-    def _validate_log_dir(cls, v: Path) -> Path:
+    def _validate_log_dir(cls, v: Union[str, Path]) -> Path:
+        v = Path(v)
         v.parent.mkdir(parents=True, exist_ok=True)
         return v
 
@@ -60,6 +62,7 @@ class SlurmConfig(BaseModel):
 
 
 class ProjectConfig(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
     watch_repos: bool = True
     log_dir: DirExists = Field(Path("log/projects"), validate_default=True)
 
