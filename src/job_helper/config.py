@@ -14,6 +14,7 @@ from pydantic import (
     DirectoryPath,
     Field,
     computed_field,
+    field_validator,
 )
 from rich.console import Console as _Console
 from rich.logging import RichHandler as _RichHandler
@@ -35,6 +36,16 @@ class CmdLoggerFileFormatter(logging.Formatter):
         else:
             self._style._fmt = "%(asctime)s %(levelname)-8s>> %(message)s"
         return super().format(record)
+
+
+class CLIConfig(BaseModel):
+    logging_cmd: bool = Field(False, description="log the running command")
+    log_file: Path = Field(Path("log/cmd.log"), validate_default=True)
+
+    @field_validator("log_file", mode="before")
+    def _validate_log_dir(cls, v: Path) -> Path:
+        v.parent.mkdir(parents=True, exist_ok=True)
+        return v
 
 
 class RepoWatcherConfig(BaseModel):
@@ -60,12 +71,12 @@ class JobHelperConfig(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
     _instance: ClassVar[Optional[Self]] = None
-    log_dir: DirExists = Field(Path("log"), validate_default=True)
     console_width: int = 120
     commands: dict[str, str] = Field(default_factory=dict)
     slurm: SlurmConfig = Field(default_factory=SlurmConfig)
     repo_watcher: RepoWatcherConfig = Field(default_factory=RepoWatcherConfig)
     project: ProjectConfig = Field(default_factory=ProjectConfig)
+    cli: CLIConfig = Field(default_factory=CLIConfig)
 
     def model_post_init(self, _):
         if JobHelperConfig._instance is not None:
@@ -89,7 +100,7 @@ class JobHelperConfig(BaseModel):
     def cmd_logger(self) -> logging.Logger:
         cmd_logger = logging.getLogger(f"cmd_{__file__}")
         cmd_logger.setLevel(logging.DEBUG)
-        cmd_logger_file_handler = logging.FileHandler(self.log_dir / "cmd.log")
+        cmd_logger_file_handler = logging.FileHandler(self.cli.log_file)
         cmd_logger_file_handler.setFormatter(CmdLoggerFileFormatter())
         cmd_logger.addHandler(cmd_logger_file_handler)
         return cmd_logger
