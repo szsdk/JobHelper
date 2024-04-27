@@ -4,7 +4,7 @@ import os
 import zlib
 from pathlib import Path
 from string import Template
-from typing import Any, ClassVar, Dict, Optional, Protocol, Self, TypeVar, Union
+from typing import Self, Union
 
 import pydantic
 import toml
@@ -47,8 +47,6 @@ class PDArgBase(BaseModel):
     ```
     """
 
-    toml_section_name: ClassVar[Optional[str]] = None
-
     @classmethod
     def __pydantic_init_subclass__(cls):
         if cls.__doc__ is None:
@@ -77,27 +75,6 @@ class PDArgBase(BaseModel):
 
     @classmethod
     @validate_call
-    def from_toml(cls, path: str, toml_section_name: str = "") -> Self:
-        path_split = path.split("::")
-        if len(path_split) == 2:
-            if toml_section_name != "":
-                raise ValueError("The section name is specified twice.")
-            path, sn = path_split
-        elif toml_section_name == "":
-            if cls.toml_section_name is None:
-                raise ValueError("The section name is not specified.")
-            sn = cls.toml_section_name
-        else:
-            if toml_section_name != cls.toml_section_name:
-                logging.warning(
-                    f"The tomal section name {toml_section_name} is different from the default {cls.toml_section_name}."
-                )
-            sn = toml_section_name
-        with open(path) as fp:
-            return cls.model_validate(_multi_index(toml.load(fp), sn))
-
-    @classmethod
-    @validate_call
     def from_config(cls, path: Union[str, Path]) -> Self:
         path_split = str(path).split("::")
         if len(path_split) == 2:
@@ -113,21 +90,11 @@ class PDArgBase(BaseModel):
                 return cls.model_validate(_multi_index(yaml.safe_load(fp), sn))
         raise ValueError(f"Unsupported config file format: {p.suffix}")
 
-    @validate_call
-    def to_toml(self, path: Optional[Path] = None) -> None:
-        if self.toml_section_name is None:
-            raise ValueError("The section name is not specified.")
-        c = {self.toml_section_name: self.model_dump(mode="json")}
-        if path is None:
-            print(toml.dumps(c))
-        else:
-            with path.open("a") as fp:
-                toml.dump(c, fp)
-
     def setattr(self, **kargs):
         for k, v in kargs.items():
             setattr(self, k, v)
         return self
 
     def slurm(self) -> Slurm:
+        # TODO: this method should be removed from this class
         raise NotImplementedError
