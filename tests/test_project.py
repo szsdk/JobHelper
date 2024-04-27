@@ -12,19 +12,6 @@ from job_helper.project_helper import flowchart, render_chart
 from tests.utils import slurm_server, testing_jhcfg
 
 
-@pytest.fixture
-def jhcfg_mock(tmp_path):
-    with MockJhcfg(
-        project={"log_dir": tmp_path / "log" / "project"},
-        slurm={
-            "log_dir": tmp_path / "log" / "job",
-            "sbatch_cmd": "python tests/fake_slurm.py sbatch",
-            "sacct_cmd": "python tests/fake_slurm.py sacct",
-        },
-    ):
-        yield
-
-
 @pytest.fixture(scope="session")
 def project_cfg(tmpdir_factory):
     dir = tmpdir_factory.mktemp("project_1")

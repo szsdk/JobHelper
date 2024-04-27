@@ -30,6 +30,7 @@ def test_cli(testing_jhcfg, capsys):
         console_main()
     captured = capsys.readouterr()
     assert captured.out == "Hello, world\n"
+    assert captured.err == ""
 
     # Check log file
     assert " ".join(cmd) in jhcfg.cli.log_file.read_text()

@@ -74,12 +74,20 @@ class JobHelperConfig(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
     _instance: ClassVar[Optional[Self]] = None
+    _reserved_commands: ClassVar[list[str]] = ["init", "project"]
     console_width: int = 120
     commands: dict[str, str] = Field(default_factory=dict)
     slurm: SlurmConfig = Field(default_factory=SlurmConfig)
     repo_watcher: RepoWatcherConfig = Field(default_factory=RepoWatcherConfig)
     project: ProjectConfig = Field(default_factory=ProjectConfig)
     cli: CLIConfig = Field(default_factory=CLIConfig)
+
+    @field_validator("commands", mode="after")
+    def not_contains_reserved_commands(cls, v: dict[str, str]) -> dict[str, str]:
+        for k in cls._reserved_commands:
+            if k in v:
+                raise ValueError(f"{k} is a reserved command.")
+        return v
 
     def model_post_init(self, _):
         if JobHelperConfig._instance is not None:
@@ -93,12 +101,10 @@ class JobHelperConfig(BaseModel):
         logging.getLogger("h5py").setLevel(logging.WARNING)
         JobHelperConfig._instance = self
 
-    @computed_field
     @cached_property
     def rich_console(self) -> _Console:
         return _Console(width=self.console_width)
 
-    @computed_field
     @cached_property
     def cmd_logger(self) -> logging.Logger:
         cmd_logger = logging.getLogger(f"cmd_{__file__}")
