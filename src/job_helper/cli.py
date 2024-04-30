@@ -3,7 +3,7 @@ import pydoc
 import sys
 from typing import Any
 
-from ._tools import log_cmd
+from ._tools import init, log_cmd
 from .config import jhcfg
 from .project_helper import Project
 
@@ -11,9 +11,7 @@ from .project_helper import Project
 def console_main():
     import fire
 
-    cmds: dict[str, Any] = {
-        "project": Project,
-    }
+    cmds: dict[str, Any] = {"project": Project, "init": init}
 
     sys.path.append(os.getcwd())
     cmds.update(

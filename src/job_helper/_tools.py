@@ -1,10 +1,12 @@
+import copy
 import datetime
 import logging
-import os
 import shlex
 import subprocess
 import sys
 import tarfile
+
+import toml
 
 from .config import jhcfg
 
@@ -73,8 +75,38 @@ def log_message(message: str, level: str = "info") -> None:
     log_cmds[level](message, extra={"typename": "MSG"})
 
 
+EXAMPLE_CODE = """from job_helper import PDArgBase
+
+
+class AddOne(PDArgBase):
+    "add 1 to num"
+    num: int
+
+    def run(self):
+        return self.num + 1"""
+
+
+def init():
+    """
+    Initialize the project directory.
+    """
+    cfg = copy.copy(jhcfg)
+    cfg.commands = {"add_one": "cli.AddOne"}
+    with open("cli.py", "w") as f:
+        print(EXAMPLE_CODE, file=f)
+
+    with open("jh_config.toml", "w") as f:
+        print(toml.dumps(cfg.model_dump(mode="json")), file=f)
+    logging.info("jh_config.toml is created.")
+    logging.info("""Try:
+    jh --help
+    jh add-one --help
+    jh add-one -n 1 - run""")
+
+
 tools = {
     "log_sh": log_sh,
     "log_message": log_message,
     "compress_log": compress_log,
+    "init": init,
 }
