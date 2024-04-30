@@ -15,6 +15,7 @@ from pydantic import (
     Field,
     computed_field,
     field_validator,
+    model_validator,
 )
 from rich.console import Console as _Console
 from rich.logging import RichHandler as _RichHandler
@@ -51,7 +52,14 @@ class CLIConfig(BaseModel):
 
 
 class RepoWatcherConfig(BaseModel):
-    repos: list[DirectoryPath] = Field(default_factory=list)
+    watched_repos: list[DirectoryPath] = Field(default_factory=list)
+    force_commit_repos: list[DirectoryPath] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def no_overlap_repos_and_force_commit(self):
+        if set(self.watched_repos) & set(self.force_commit_repos):
+            raise ValueError("watched_repos and force_commit_repos should not overlap.")
+        return self
 
 
 class SlurmConfig(BaseModel):
@@ -63,7 +71,6 @@ class SlurmConfig(BaseModel):
 
 class ProjectConfig(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
-    watch_repos: bool = True
     log_dir: DirExists = Field(Path("log/projects"), validate_default=True)
 
 
@@ -72,7 +79,7 @@ class JobHelperConfig(BaseModel):
     This is a singleton class for storing global variables.
     """
 
-    model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
+    model_config = ConfigDict(validate_assignment=True)
     _instance: ClassVar[Optional[Self]] = None
     _reserved_commands: ClassVar[list[str]] = ["init", "project"]
     console_width: int = 120

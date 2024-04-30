@@ -43,7 +43,7 @@ class MockJhcfg:
 def testing_jhcfg(tmp_path):
     with MockJhcfg(
         project=dict(log_dir=tmp_path / "log" / "project"),
-        repo_watcher=dict(repos=["."]),
+        repo_watcher=dict(watched_repos=["."]),
         slurm=dict(
             log_dir=tmp_path / "log" / "job",
             sbatch_cmd="python tests/fake_slurm.py sbatch",

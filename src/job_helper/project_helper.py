@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from .arg import PDArgBase
 from .config import ProjectConfig as JHProjectConfig
 from .config import jhcfg
-from .repo_watcher import RepoState
+from .repo_watcher import RepoState, RepoWatcher
 from .slurm_helper import Slurm
 
 
@@ -220,11 +220,11 @@ def _get_commands():
     return ans
 
 
-class ProjectOutput(BaseModel):
+class ProjectRunningResult(BaseModel):
     config: ProjectConfig
     jobs: dict[str, int]
     time: datetime = Field(default_factory=datetime.now)
-    repo_states: dict[str, RepoState] = Field(default_factory=dict)
+    repo_states: list[RepoState] = Field(default_factory=list)
 
 
 class Project(BaseModel):
@@ -285,30 +285,28 @@ class Project(BaseModel):
         self, reruns: str = "START", run_following: bool = True, dry: bool = True
     ) -> None:
         jobs_torun = self.config._get_job_torun(reruns, run_following)
+        repo_states = [] if dry else RepoWatcher.from_jhcfg().repo_states()
         jobs = self._run_jobs({}, jobs_torun, dry)
         if len(jobs) == 0:
             jhcfg.cmd_logger.warning("No jobs to run")
             return
         if not dry:
-            proj_fn = (
-                self.jh_config.log_dir / f"{jobs[list(jobs.keys())[0]].job_id}.json"
+            self._output_running_result(
+                jobs,
+                repo_states,
             )
-            with proj_fn.open("w") as fp:
-                print(self._output(jobs).model_dump_json(), file=fp)
-            jhcfg.cmd_logger.info(f"Running project {proj_fn}")
 
-    def _output(self, jobs) -> ProjectOutput:
-        if self.jh_config.watch_repos:
-            repo_states = {
-                str(p): RepoState.from_folder(p) for p in jhcfg.repo_watcher.repos
-            }
-        else:
-            repo_states = {}
-        return ProjectOutput(
+    def _output_running_result(self, jobs, repo_states) -> None:
+        result = ProjectRunningResult(
             jobs={k: v.job_id for k, v in jobs.items()},
             config=self.config,
             repo_states=repo_states,
         )
+
+        result_fn = self.jh_config.log_dir / f"{jobs[list(jobs.keys())[0]].job_id}.json"
+        with result_fn.open("w") as fp:
+            print(result.model_dump_json(), file=fp)
+        jhcfg.cmd_logger.info(f"Running project {result_fn}, written to {result_fn}")
 
     def jobflow(
         self, reruns: str = "START", run_following: bool = True, output_fn: str = "-"
