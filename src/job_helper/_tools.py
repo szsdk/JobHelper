@@ -9,65 +9,13 @@ import tarfile
 from .config import jhcfg
 
 
-def git_status(scope: str = "folder") -> list[tuple[str, str]]:
-    """
-    Check the Git status of the current folder or the whole repository.
-    `scope` can be either "folder" or "repository".
-    """
-
-    # Run the 'git status . -s' command
-    result = subprocess.run(
-        ["git", "status", "-s", "."] if scope == "folder" else ["git", "status", "-s"],
-        capture_output=True,
-        text=True,
-    )
-    ans = []
-    for line in result.stdout.strip().split("\n"):
-        line = line.strip()
-        if len(line) > 0:
-            ans.append((line[:2], line[2:].strip()))
-    return ans
-
-
-def force_commit(scope: str = "folder") -> None:
-    """
-    Make sure all changes in the current folder or the whole repository are committed.
-    """
-    uncommitted = git_status(scope)
-    if uncommitted == []:
-        jhcfg.cmd_logger.info(f"commit: {git_commit_hash()}", extra={"typename": "GIT"})
-        return
-    logging.warning("The following files are not committed:")
-    for status, file in uncommitted:
-        logging.warning(f"{status} {file}")
-    if input("do you want to commit all changes? (Y/n)") in ["Y", "y", "yes", ""]:
-        subprocess.run(["git", "add", "."], capture_output=True, text=True)
-        # Use the current time as the commit message
-        commit_message = f"Auto commit at {datetime.datetime.now()}"
-        os.system(f"git commit -m '{commit_message}'")
-        logging.info(f"Commit message: {commit_message}")
-    raise Exception(f"Some files are not committed in the {scope}!")
-
-
-def git_commit_hash() -> str:
-    """
-    Get the commit hash of the current commit.
-    """
-    result = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        capture_output=True,
-        text=True,
-    )
-    return result.stdout.strip()
-
-
 def compress_log(dt: float = 24) -> None:
     """
     This function compresses the '.out' and '.sh' files which are not modified more than a certain
     time, `dt` (default=24 hours), in a directory, `log_dir` (default='log/slurm') to a tar.gz file.
     The file name is the current date+time.
     """
-    log_dir = jhcfg.job_log_dir
+    log_dir = jhcfg.slurm.log_dir
     # Get the current date+time
     now = datetime.datetime.now()
     now_str = now.strftime("%Y%m%d_%H%M%S")
@@ -128,6 +76,5 @@ def log_message(message: str, level: str = "info") -> None:
 tools = {
     "log_sh": log_sh,
     "log_message": log_message,
-    "force_commit": force_commit,
     "compress_log": compress_log,
 }
