@@ -48,7 +48,7 @@ class PDArgBase(BaseModel):
     """
 
     @classmethod
-    def __pydantic_init_subclass__(cls):
+    def __pydantic_init_subclass__(cls, **kwargs):
         if cls.__doc__ is None:
             cls.__doc__ = ""
         param_docs = []

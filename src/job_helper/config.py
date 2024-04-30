@@ -13,7 +13,6 @@ from pydantic import (
     ConfigDict,
     DirectoryPath,
     Field,
-    computed_field,
     field_validator,
     model_validator,
 )
@@ -32,17 +31,18 @@ DirExists = Annotated[DirectoryPath, BeforeValidator(dir_exists)]
 
 class CmdLoggerFileFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
-        if hasattr(record, "typename"):
-            record.label = f"{record.levelname[0]}-{record.typename}"
-            self._style._fmt = "%(asctime)s %(label)-8s>> %(message)s"
-        else:
+        typename = getattr(record, "typename", None)
+        if typename is None:
             self._style._fmt = "%(asctime)s %(levelname)-8s>> %(message)s"
+        else:
+            record.label = f"{record.levelname[0]}-{typename}"
+            self._style._fmt = "%(asctime)s %(label)-8s>> %(message)s"
         return super().format(record)
 
 
 class CLIConfig(BaseModel):
-    logging_cmd: bool = Field(False, description="log the running command")
-    log_file: Path = Field(Path("log/cmd.log"), validate_default=True)
+    logging_cmd: Annotated[bool, Field(description="log the running command")] = False
+    log_file: Annotated[Path, Field(description="log file")] = Path("log/cmd.log")
 
     @field_validator("log_file", mode="before")
     def _validate_log_dir(cls, v: Union[str, Path]) -> Path:
@@ -66,12 +66,12 @@ class SlurmConfig(BaseModel):
     shell: str = "/bin/sh"
     sbatch_cmd: str = "sbatch"
     sacct_cmd: str = "sacct"
-    log_dir: DirExists = Field(Path("log/jobs"), validate_default=True)
+    log_dir: Annotated[DirExists, Field(validate_default=True)] = Path("log/jobs")
 
 
 class ProjectConfig(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
-    log_dir: DirExists = Field(Path("log/projects"), validate_default=True)
+    log_dir: DirExists = Field(default=Path("log/projects"), validate_default=True)
 
 
 class JobHelperConfig(BaseModel):
@@ -84,7 +84,9 @@ class JobHelperConfig(BaseModel):
     _reserved_commands: ClassVar[list[str]] = ["init", "project"]
     console_width: int = 120
     commands: dict[str, str] = Field(default_factory=dict)
-    slurm: SlurmConfig = Field(default_factory=SlurmConfig)
+    slurm: SlurmConfig = Field(
+        default_factory=SlurmConfig, description="Slurm configuration"
+    )
     repo_watcher: RepoWatcherConfig = Field(default_factory=RepoWatcherConfig)
     project: ProjectConfig = Field(default_factory=ProjectConfig)
     cli: CLIConfig = Field(default_factory=CLIConfig)
