@@ -41,6 +41,7 @@ class CmdLoggerFileFormatter(logging.Formatter):
 
 
 class CLIConfig(BaseModel):
+    model_config = ConfigDict(validate_assignment=True)
     logging_cmd: Annotated[bool, Field(description="log the running command")] = False
     log_file: Annotated[Path, Field(description="log file")] = Path("log/cmd.log")
 
@@ -80,7 +81,6 @@ class JobHelperConfig(BaseModel):
     """
 
     model_config = ConfigDict(validate_assignment=True)
-    _instance: ClassVar[Optional[Self]] = None
     _reserved_commands: ClassVar[list[str]] = ["init", "project"]
     console_width: Annotated[int, Field(description="console width")] = 120
     commands: dict[str, str] = Field(default_factory=dict)
@@ -99,8 +99,6 @@ class JobHelperConfig(BaseModel):
         return v
 
     def model_post_init(self, _):
-        if JobHelperConfig._instance is not None:
-            raise RuntimeError("The instance is already initialized.")
         logging.basicConfig(
             level=logging.DEBUG,
             format="%(message)s",
@@ -108,7 +106,6 @@ class JobHelperConfig(BaseModel):
         )
         logging.getLogger("matplotlib").setLevel(logging.WARNING)
         logging.getLogger("h5py").setLevel(logging.WARNING)
-        JobHelperConfig._instance = self
 
     @cached_property
     def rich_console(self) -> _Console:
@@ -122,12 +119,6 @@ class JobHelperConfig(BaseModel):
         cmd_logger_file_handler.setFormatter(CmdLoggerFileFormatter())
         cmd_logger.addHandler(cmd_logger_file_handler)
         return cmd_logger
-
-    @staticmethod
-    def get_instance() -> JobHelperConfig:
-        if JobHelperConfig._instance is None:
-            return JobHelperConfig()
-        return JobHelperConfig._instance
 
 
 def _init_jhcfg():

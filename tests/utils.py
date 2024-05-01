@@ -1,7 +1,13 @@
 import copy
+import shlex
+import sys
+from pathlib import Path
+from unittest.mock import patch
 
 import pytest
+import toml
 from job_helper import jhcfg
+from job_helper.cli import JobHelperConfig, console_main
 from pydantic import BaseModel
 
 from tests.fake_slurm import SlurmServer
@@ -20,6 +26,7 @@ class MockJhcfg:
             else:
                 setattr(jhcfg, k, v)
 
+        JobHelperConfig.model_validate(jhcfg.model_dump())
         # Since cmd_logger and rich_console are cached_property, we need to refresh them. But before that, we need to make sure they exist then we can delete them.
         jhcfg.cmd_logger
         jhcfg.rich_console
@@ -27,6 +34,7 @@ class MockJhcfg:
         del jhcfg.rich_console
         jhcfg.cmd_logger
         jhcfg.rich_console
+
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -61,3 +69,13 @@ def testing_jhcfg(tmp_path):
 def slurm_server():
     with SlurmServer() as s:
         yield s
+
+
+def run_jh(cmd: str, cfg_src=Path("jh_config.toml")):
+    if isinstance(cfg_src, Path):
+        cfg_src = toml.load(cfg_src) if cfg_src.exists() else {}
+    with (
+        patch.object(sys, "argv", shlex.split(cmd)),
+        MockJhcfg(**cfg_src),
+    ):
+        console_main()
