@@ -64,7 +64,7 @@ class RepoWatcherConfig(BaseModel):
 
 class SlurmConfig(BaseModel):
     shell: str = "/bin/sh"
-    sbatch_cmd: str = "sbatch"
+    sbatch_cmd: Annotated[str, Field(description="sbatch command")] = "sbatch"
     sacct_cmd: str = "sacct"
     log_dir: Annotated[DirExists, Field(validate_default=True)] = Path("log/jobs")
 
@@ -82,7 +82,7 @@ class JobHelperConfig(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
     _instance: ClassVar[Optional[Self]] = None
     _reserved_commands: ClassVar[list[str]] = ["init", "project"]
-    console_width: int = 120
+    console_width: Annotated[int, Field(description="console width")] = 120
     commands: dict[str, str] = Field(default_factory=dict)
     slurm: SlurmConfig = Field(
         default_factory=SlurmConfig, description="Slurm configuration"

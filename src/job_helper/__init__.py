@@ -4,7 +4,7 @@ from .config import JobHelperConfig, jhcfg
 from .project_helper import (
     JobComboArg,
     JobConfig,
-    PDArgBase,
+    ArgBase,
     Project,
     ProjectArgBase,
     ProjectConfig,

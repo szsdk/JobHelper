@@ -15,7 +15,7 @@ import toml
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from .arg import PDArgBase
+from .arg import ArgBase
 from .config import ProjectConfig as JHProjectConfig
 from .config import jhcfg
 from .repo_watcher import RepoState, RepoWatcher
@@ -36,14 +36,14 @@ def _get_slurm_config(
     return ans
 
 
-class ShellCommand(PDArgBase):
+class ShellCommand(ArgBase):
     sh: str
 
     def slurm(self) -> Slurm:
         return Slurm(run_cmd=self.sh)
 
 
-class ProjectArgBase(PDArgBase):
+class ProjectArgBase(ArgBase):
     def slurm(self, project: Project) -> Slurm:
         raise NotImplementedError
 
@@ -89,7 +89,7 @@ class SlurmConfig(BaseModel):
         return v
 
 
-class JobConfig(PDArgBase):
+class JobConfig(ArgBase):
     command: str
     config: dict[str, Any]
     slurm_config: SlurmConfig = SlurmConfig()
@@ -136,7 +136,7 @@ def render_chart(chart: str, output_fn: str):
         fp.write(response.read())
 
 
-class ProjectConfig(PDArgBase):
+class ProjectConfig(ArgBase):
     jobs: dict[str, JobConfig]
     node_styles: ClassVar[dict[str, str]] = {
         "norun": "classDef norun fill:#ddd,stroke:#aaa,stroke-width:3px,stroke-dasharray: 5 5"
@@ -215,7 +215,7 @@ def _get_commands():
     ans = {}
     for cmd, arg_class in jhcfg.commands.items():
         arg = pydoc.locate(arg_class)
-        if isinstance(arg, type) and issubclass(arg, PDArgBase):
+        if isinstance(arg, type) and issubclass(arg, ArgBase):
             ans[cmd] = arg
     return ans
 
@@ -228,7 +228,7 @@ class ProjectRunningResult(BaseModel):
 
 
 class Project(BaseModel):
-    commands: dict[str, type[PDArgBase]] = Field(
+    commands: dict[str, type[ArgBase]] = Field(
         default_factory=_get_commands, validate_default=True
     )
     config: ProjectConfig

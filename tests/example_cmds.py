@@ -2,10 +2,10 @@ import logging
 from pathlib import Path
 
 import numpy as np
-from job_helper import PDArgBase, Slurm
+from job_helper import ArgBase, Slurm
 
 
-class GenerateDataArg(PDArgBase):
+class GenerateDataArg(ArgBase):
     count: int
     output_fn: str
 
@@ -25,7 +25,7 @@ python {__file__} {type(self).__name__} from_base64 '{self.to_base64()}' - run
         )
 
 
-class SumDataArg(PDArgBase):
+class SumDataArg(ArgBase):
     input_fn: str
     output_fn: str
 

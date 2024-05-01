@@ -38,11 +38,11 @@ def doc_from_FieldInfo(field_info: pydantic.fields.FieldInfo) -> str:
     return " | ".join(doc_parts)
 
 
-class PDArgBase(BaseModel):
+class ArgBase(BaseModel):
     """
     This is a base class for the arguments.
     ```python
-    class Args(PDArgBase):
+    class Args(ArgBase):
         ...
     ```
     """

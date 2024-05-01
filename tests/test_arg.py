@@ -6,7 +6,7 @@ import yaml
 from tests.example_cmds import GenerateDataArg, SumDataArg
 
 
-def test_PDArg(tmpdir):
+def test_Arg(tmpdir):
     arg = GenerateDataArg(count=100, output_fn=str(tmpdir / "c.txt"))
     cfg_fn = tmpdir / "generate_data.yaml"
     with cfg_fn.open("w") as f:
