@@ -5,10 +5,11 @@ import shlex
 import subprocess
 import sys
 import tarfile
+from pathlib import Path
 
 import toml
 
-from .config import jhcfg
+from .config import JobHelperConfig, jhcfg
 
 
 def compress_log(dt: float = 24) -> None:
@@ -90,13 +91,21 @@ def init():
     """
     Initialize the project directory.
     """
-    cfg = copy.copy(jhcfg)
+    cfg: JobHelperConfig = copy.copy(jhcfg)
     cfg.commands = {"add_one": "cli.AddOne"}
+    cwd = Path().resolve()
+    cfg.repo_watcher.watched_repos = [cwd]
     with open("cli.py", "w") as f:
         print(EXAMPLE_CODE, file=f)
 
     with open("jh_config.toml", "w") as f:
         print(toml.dumps(cfg.model_dump(mode="json")), file=f)
+
+    if not (cwd / ".git").exists():
+        logging.warning(
+            "This is not a git repository. It is recommended to use git for version control."
+        )
+
     logging.info("jh_config.toml is created.")
     logging.info("""Try:
     jh --help
