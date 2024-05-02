@@ -18,6 +18,8 @@ _env0 = (  # noqa: E402
     os.environ.copy()
 )  # It should be before importing other modules, especially `mpi4py`.
 
+_cmd_logger = logging.getLogger("_jb_cmd")
+
 
 class JobInfo(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -96,7 +98,7 @@ class Slurm(BaseModel):
             logging.error(result.stderr)
             sys.exit(1)
         self.job_id = int(stdout)
-        jhcfg.cmd_logger.info("Submitted batch job %s", stdout)
+        _cmd_logger.info("Submitted batch job %s", stdout)
         if save_script:
             with (self.jh_config.log_dir / f"{self.job_id}_slurm.sh").open("w") as fp:
                 print(self.script, file=fp)

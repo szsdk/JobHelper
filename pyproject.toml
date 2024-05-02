@@ -25,7 +25,7 @@ tests = [
 ]
 
 [project.scripts]
-jh = "job_helper:console_main"
+jh = "job_helper:cli.console_main"
 
 [tool.setuptools]
 zip-safe = false

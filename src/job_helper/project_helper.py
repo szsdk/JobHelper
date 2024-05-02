@@ -21,6 +21,8 @@ from .config import jhcfg
 from .repo_watcher import RepoState, RepoWatcher
 from .slurm_helper import Slurm
 
+_cmd_logger = logging.getLogger("_jb_cmd")
+
 
 def _get_slurm_config(
     jobname: str, slurm_config: SlurmConfig, jobs: dict[str, Slurm], dry: bool
@@ -289,7 +291,7 @@ class Project(BaseModel):
         repo_states = [] if dry else RepoWatcher.from_jhcfg().repo_states()
         jobs = self._run_jobs({}, jobs_torun, dry)
         if len(jobs) == 0:
-            jhcfg.cmd_logger.warning("No jobs to run")
+            _cmd_logger.warning("No jobs to run")
             return
         if not dry:
             self._output_running_result(
@@ -307,7 +309,7 @@ class Project(BaseModel):
         result_fn = self.jh_config.log_dir / f"{jobs[list(jobs.keys())[0]].job_id}.json"
         with result_fn.open("w") as fp:
             print(result.model_dump_json(), file=fp)
-        jhcfg.cmd_logger.info(f"Running project {result_fn}, written to {result_fn}")
+        _cmd_logger.info(f"Running project {result_fn}, written to {result_fn}")
 
     def jobflow(
         self, reruns: str = "START", run_following: bool = True, output_fn: str = "-"

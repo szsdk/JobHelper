@@ -4,7 +4,7 @@ import logging
 import os
 from functools import cached_property
 from pathlib import Path
-from typing import Annotated, ClassVar, Optional, Self, Union
+from typing import Annotated, ClassVar, Union
 
 import toml
 from pydantic import (
@@ -16,17 +16,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
-from rich.console import Console as _Console
-from rich.logging import RichHandler as _RichHandler
-
-
-def dir_exists(v: Union[str, Path]) -> Path:
-    v = Path(v)
-    v.mkdir(parents=True, exist_ok=True)
-    return v
-
-
-DirExists = Annotated[DirectoryPath, BeforeValidator(dir_exists)]
+from rich.logging import RichHandler
 
 
 class CmdLoggerFileFormatter(logging.Formatter):
@@ -38,6 +28,15 @@ class CmdLoggerFileFormatter(logging.Formatter):
             record.label = f"{record.levelname[0]}-{typename}"
             self._style._fmt = "%(asctime)s %(label)-8s>> %(message)s"
         return super().format(record)
+
+
+def dir_exists(v: Union[str, Path]) -> Path:
+    v = Path(v)
+    v.mkdir(parents=True, exist_ok=True)
+    return v
+
+
+DirExists = Annotated[DirectoryPath, BeforeValidator(dir_exists)]
 
 
 class CLIConfig(BaseModel):
@@ -55,6 +54,23 @@ class CLIConfig(BaseModel):
 class RepoWatcherConfig(BaseModel):
     watched_repos: list[DirectoryPath] = Field(default_factory=list)
     force_commit_repos: list[DirectoryPath] = Field(default_factory=list)
+
+    @field_validator("watched_repos", "force_commit_repos", mode="after")
+    def _validate_repos(cls, v: list[DirectoryPath]) -> list[DirectoryPath]:
+        ans = []
+        for p in v:
+            if not p.is_dir():
+                cmd_logger.warning(
+                    f"{p} is not a directory. It is removed from repo_watcher"
+                )
+                continue
+            if not (p / ".git").exists():
+                cmd_logger.warning(
+                    f"{p} is not a git repo. It is removed from repo_watcher"
+                )
+                continue
+            ans.append(p)
+        return ans
 
     @model_validator(mode="after")
     def no_overlap_repos_and_force_commit(self):
@@ -99,29 +115,17 @@ class JobHelperConfig(BaseModel):
         return v
 
     def model_post_init(self, _):
-        logging.basicConfig(
-            level=logging.DEBUG,
-            format="%(message)s",
-            handlers=[_RichHandler(console=self.rich_console)],
-        )
-        logging.getLogger("matplotlib").setLevel(logging.WARNING)
-        logging.getLogger("h5py").setLevel(logging.WARNING)
-
-    @cached_property
-    def rich_console(self) -> _Console:
-        return _Console(width=self.console_width)
-
-    @cached_property
-    def cmd_logger(self) -> logging.Logger:
-        cmd_logger = logging.getLogger(f"cmd_{__file__}")
-        cmd_logger.setLevel(logging.DEBUG)
         cmd_logger_file_handler = logging.FileHandler(self.cli.log_file)
         cmd_logger_file_handler.setFormatter(CmdLoggerFileFormatter())
         cmd_logger.addHandler(cmd_logger_file_handler)
-        return cmd_logger
 
 
-def _init_jhcfg():
+class _InitJobHelperConfig(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    cli: CLIConfig = Field(default_factory=CLIConfig)
+
+
+def _init_jhcfg(cls):
     fn = None
     if "JHCFG" in os.environ:
         fn = os.environ["JHCFG"]
@@ -129,8 +133,21 @@ def _init_jhcfg():
         fn = "jh_config.toml"
 
     if fn is None:
-        return JobHelperConfig()
-    return JobHelperConfig.model_validate(toml.load(fn))
+        return cls()
+    return cls.model_validate(toml.load(fn))
 
 
-jhcfg = _init_jhcfg()
+def _init_logger():
+    cmd_logger.setLevel(logging.DEBUG)
+    cfg = _init_jhcfg(_InitJobHelperConfig)
+    cmd_logger_file_handler = logging.FileHandler(cfg.cli.log_file)
+    cmd_logger_file_handler.setFormatter(CmdLoggerFileFormatter())
+    cmd_logger.addHandler(cmd_logger_file_handler)
+
+    cmd_logger.addHandler(RichHandler())
+
+
+cmd_logger = logging.getLogger("_jb_cmd")
+_init_logger()
+
+jhcfg = _init_jhcfg(JobHelperConfig)

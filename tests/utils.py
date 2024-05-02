@@ -28,23 +28,11 @@ class MockJhcfg:
                 setattr(jhcfg, k, v)
 
         JobHelperConfig.model_validate(jhcfg.model_dump())
-        # Since cmd_logger and rich_console are cached_property, we need to refresh them. But before that, we need to make sure they exist then we can delete them.
-        jhcfg.cmd_logger
-        jhcfg.rich_console
-        del jhcfg.cmd_logger
-        del jhcfg.rich_console
-        jhcfg.cmd_logger
-        jhcfg.rich_console
-
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         for k in self._config.keys():
             setattr(jhcfg, k, getattr(self._old, k))
-        del jhcfg.cmd_logger
-        del jhcfg.rich_console
-        jhcfg.cmd_logger
-        jhcfg.rich_console
         return False
 
 

@@ -1,5 +1,3 @@
-from . import cli
-from .cli import console_main
 from .config import JobHelperConfig, jhcfg
 from .project_helper import (
     ArgBase,
