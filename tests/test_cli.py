@@ -1,4 +1,6 @@
-from tests.utils import run_jh
+from job_helper import cli, jhcfg
+
+from tests.utils import run_jh, testing_jhcfg
 
 
 def test_init(tmp_path, monkeypatch, capsys):
@@ -10,3 +12,11 @@ def test_init(tmp_path, monkeypatch, capsys):
     captured = capsys.readouterr()
     assert captured.out == "3\n"
     assert captured.err == ""
+
+
+def test_tools(tmp_path, testing_jhcfg):
+    fn = jhcfg.slurm.log_dir / "test.out"
+    cli.tools.log_sh(f"echo 123 >> {fn}")
+    assert fn.read_text() == "123\n"
+    cli.tools.log_message("hello")
+    cli.tools.compress_log(0)

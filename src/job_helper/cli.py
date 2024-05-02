@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from ._tools import log_cmd
+from ._tools import Tools, log_cmd
 from ._utils import dumps_toml
 from .config import JobHelperConfig, jhcfg
 from .project_helper import Project
@@ -27,7 +27,7 @@ def init():
     Initialize the project directory.
     """
     cfg: JobHelperConfig = copy.copy(jhcfg)
-    cfg.commands = {"add_one": "cli.AddOne"}
+    cfg.commands = {"add_one": "cli.AddOne", "tools": "job_helper.cli.tools"}
     cwd = Path().resolve()
     cfg.repo_watcher.watched_repos = [cwd]
     with open("cli.py", "w") as f:
@@ -61,3 +61,6 @@ def console_main():
     if jhcfg.cli.logging_cmd:
         log_cmd()
     fire.Fire(cmds)
+
+
+tools = Tools()

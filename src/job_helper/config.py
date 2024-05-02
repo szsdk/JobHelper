@@ -42,7 +42,7 @@ class CmdLoggerFileFormatter(logging.Formatter):
 
 class CLIConfig(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
-    logging_cmd: Annotated[bool, Field(description="log the running command")] = False
+    logging_cmd: Annotated[bool, Field(description="log the running command")] = True
     log_file: Annotated[Path, Field(description="log file")] = Path("log/cmd.log")
 
     @field_validator("log_file", mode="before")

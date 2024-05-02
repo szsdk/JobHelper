@@ -1,22 +1,17 @@
-import copy
 import datetime
 import logging
 import shlex
 import subprocess
 import sys
 import tarfile
-from pathlib import Path
 
-import toml
-
-from ._utils import dumps_toml
-from .config import JobHelperConfig, jhcfg
+from .config import jhcfg
 
 
 def compress_log(dt: float = 24) -> None:
     """
     This function compresses the '.out' and '.sh' files which are not modified more than a certain
-    time, `dt` (default=24 hours), in a directory, `log_dir` (default='log/slurm') to a tar.gz file.
+    time, `dt` hours (default=24 hours), in the directory, `slurm.log_dir` (default='log/slurm') to a tar.gz file.
     The file name is the current date+time.
     """
     log_dir = jhcfg.slurm.log_dir
@@ -49,36 +44,39 @@ def log_cmd() -> None:
     jhcfg.cmd_logger.info(shlex.join(sys.argv), extra={"typename": "CMD"})
 
 
-def log_sh(command: str) -> None:
-    """
-    Run a shell command and log it if the command succeeds.
-    ```
-    log_sh ls -all
-    ```
-    """
-    subprocess.run(command, shell=True, check=True)
-    jhcfg.cmd_logger.info(command, extra={"typename": "SH"})
-    exit()
+class Tools:
+    def log_sh(self, command: str) -> None:
+        """
+        Run a shell command and log it if the command succeeds.
+        ```
+        log_sh "ls -all"
+        ```
+        """
+        subprocess.run(command, shell=True, check=True)
+        jhcfg.cmd_logger.info(command, extra={"typename": "SH"})
 
+    def log_message(self, message: str, level: str = "info") -> None:
+        """
+        Add some logging information to `cmd.log`
+        ```
+        log_message "hello" warning
+        ```
+        """
+        cmd_logger = jhcfg.cmd_logger
+        log_cmds = {
+            "info": cmd_logger.info,
+            "error": cmd_logger.error,
+            "warning": cmd_logger.warning,
+        }
+        log_cmds[level](message, extra={"typename": "MSG"})
 
-def log_message(message: str, level: str = "info") -> None:
-    """
-    Add some logging information to `cmd.log`
-    ```
-    log_message "hello" warning
-    ```
-    """
-    cmd_logger = jhcfg.cmd_logger
-    log_cmds = {
-        "info": cmd_logger.info,
-        "error": cmd_logger.error,
-        "warning": cmd_logger.warning,
-    }
-    log_cmds[level](message, extra={"typename": "MSG"})
-
-
-tools = {
-    "log_sh": log_sh,
-    "log_message": log_message,
-    "compress_log": compress_log,
-}
+    def compress_log(self, dt: float = 24) -> None:
+        """
+        This function compresses the '.out' and '.sh' files which are not modified more than a certain
+        time, `dt` hours (default=24 hours), in the directory, `slurm.log_dir` (default='log/slurm') to a tar.gz file.
+        The file name is the current date+time.
+        ```
+        compress_log 24
+        ```
+        """
+        compress_log(dt)
