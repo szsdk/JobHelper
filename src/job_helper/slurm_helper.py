@@ -14,28 +14,6 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validat
 from .config import JobHelperConfig, jhcfg
 from .config import SlurmConfig as JHSlurmConfig
 
-__all__ = [
-    "Slurm",
-    "compress_log",
-    "log_cmd",
-    "log_sh",
-    "force_commit",
-]
-
-
-__doc__ = r"""
-This module provides a simple interface for submitting jobs to a cluster (Slurm).
-
-It is highly recommended to use this module with the [`fire` package](https://github.com/szsdk/python-fire).
-
-## Usful commands
-```bash
-fd '' log/jobs -e out --changed-within=1week | fzf --preview 'tail {}'
-
-cat log/cmd.log | fzf
-```
-"""
-
 _env0 = (  # noqa: E402
     os.environ.copy()
 )  # It should be before importing other modules, especially `mpi4py`.
