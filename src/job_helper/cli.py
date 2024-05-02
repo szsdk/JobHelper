@@ -124,13 +124,18 @@ def init():
 def console_main():
     import fire
 
-    # cmd_logger.addHandler(RichHandler(console=Console()))
     cmds: dict[str, Any] = {"project": Project, "init": init}
 
     sys.path.append(os.getcwd())
-    cmds.update(
-        {cmd: pydoc.locate(arg_class) for cmd, arg_class in jhcfg.commands.items()}
-    )
+    # pre check command to avoid unnecessary import and improve performance
+    if sys.argv[1] in cmds:
+        pass
+    elif (cmd := sys.argv[1]) in jhcfg.commands:
+        cmds.update({cmd: pydoc.locate(jhcfg.commands[cmd])})
+    else:
+        cmds.update(
+            {cmd: pydoc.locate(arg_class) for cmd, arg_class in jhcfg.commands.items()}
+        )
     sys.path.pop(-1)
     if jhcfg.cli.logging_cmd:
         log_cmd()
