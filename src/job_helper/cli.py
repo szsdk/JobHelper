@@ -3,6 +3,7 @@ import logging
 import os
 import pydoc
 import sys
+from importlib import resources
 from pathlib import Path
 from typing import Any
 
@@ -10,16 +11,6 @@ from ._tools import Tools, log_cmd
 from ._utils import dumps_toml
 from .config import JobHelperConfig, jhcfg
 from .project_helper import Project
-
-_EXAMPLE_CODE = """from job_helper import ArgBase
-
-
-class AddOne(ArgBase):
-    "add 1 to num"
-    num: int
-
-    def run(self):
-        return self.num + 1"""
 
 
 def init():
@@ -30,8 +21,11 @@ def init():
     cfg.commands = {"add_one": "cli.AddOne", "tools": "job_helper.cli.tools"}
     cwd = Path().resolve()
     cfg.repo_watcher.watched_repos = [cwd]
-    with open("cli.py", "w") as f:
-        print(_EXAMPLE_CODE, file=f)
+    with (
+        open("cli.py", "w") as f,
+        resources.open_text("job_helper.init_example", "cli.py") as file,
+    ):
+        print(file.read(), file=f)
 
     with open("jh_config.toml", "w") as f:
         print(dumps_toml(cfg), file=f)

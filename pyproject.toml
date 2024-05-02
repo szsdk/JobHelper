@@ -36,7 +36,7 @@ include-package-data = true
 job_helper = "src/job_helper/"
 
 [tool.setuptools.package-data]
-job_helper = ["py.typed"]
+job_helper = ["init_example/cli.py"]
 
 [tool.pytest.ini_options]
 log_cli = true
