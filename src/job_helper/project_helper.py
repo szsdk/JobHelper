@@ -72,7 +72,8 @@ class SlrumDependency(BaseModel):
                         ansk.append(str(jobs[j].job_id))
                 else:
                     logging.warning(f"job {j} not found")
-            ans.append(f"{k}:{':'.join(ansk)}")
+            if len(ansk) > 0:
+                ans.append(f"{k}:{':'.join(ansk)}")
         return ",".join(ans)
 
 
