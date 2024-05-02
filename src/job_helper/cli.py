@@ -136,10 +136,10 @@ def console_main():
         cmds.update(
             {cmd: pydoc.locate(arg_class) for cmd, arg_class in jhcfg.commands.items()}
         )
-    sys.path.pop(-1)
     if jhcfg.cli.logging_cmd:
         log_cmd()
     fire.Fire(cmds)
+    sys.path.pop(-1)
 
 
 tools = Tools()

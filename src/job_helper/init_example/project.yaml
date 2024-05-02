@@ -6,10 +6,16 @@ jobs:
     slurm_config:
       dependency:
         - START
-  job2:
+  job2_0:
     command: add_one
     config:
       num: 4
+  job2:
+    command: job_combo
+    config:
+      jobs:
+        - sh: sleep 1
+        - job2_0
     slurm_config:
       dependency:
         afterok:

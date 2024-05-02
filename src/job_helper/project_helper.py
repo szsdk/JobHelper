@@ -45,6 +45,9 @@ class ShellCommand(ArgBase):
         return Slurm(run_cmd=self.sh)
 
 
+cmd_logger = logging.getLogger("_jh_cmd")
+
+
 class ProjectArgBase(ArgBase):
     def slurm(self, project: Project) -> Slurm:
         raise NotImplementedError
@@ -205,7 +208,7 @@ class JobComboArg(ProjectArgBase):
             else:
                 raise NotImplementedError
 
-            j = project[j.command].model_validate(j.config)
+            j = project.commands[j.command].model_validate(j.config)
             cmds.append(
                 (
                     j.slurm(project) if isinstance(j, ProjectArgBase) else j.slurm()
@@ -261,17 +264,13 @@ class Project(BaseModel):
             return json.loads(fn.read_text())
         raise ValueError(f"Unsupported config file: {fn}")
 
-    def __getitem__(self, key):
-        logging.info(f"commands: {self.commands}")
-        return self.commands[key]
-
     def _run_jobs(self, jobs, jobs_torun: dict[str, JobConfig], dry: bool):
         while len(jobs_torun) > 0:
             jobname, job = jobs_torun.popitem()
             for j in job.slurm_config.dependency:
                 if j in jobs_torun:
                     self._run_jobs(jobs, jobs_torun, dry)
-            job_arg = self[job.command].model_validate(job.config)
+            job_arg = self.commands[job.command].model_validate(job.config)
             if job.slurm_config is not None:
                 jobs[jobname] = (
                     (
