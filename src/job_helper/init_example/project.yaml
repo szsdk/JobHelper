@@ -1,0 +1,16 @@
+jobs:
+  job1:
+    command: add_one
+    config:
+      num: 3
+    slurm_config:
+      dependency:
+        - START
+  job2:
+    command: add_one
+    config:
+      num: 4
+    slurm_config:
+      dependency:
+        afterok:
+          - job1

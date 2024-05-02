@@ -36,7 +36,10 @@ include-package-data = true
 job_helper = "src/job_helper/"
 
 [tool.setuptools.package-data]
-job_helper = ["init_example/cli.py"]
+job_helper = [
+    "init_example/cli.py",
+    "init_example/project.toml",
+]
 
 [tool.pytest.ini_options]
 log_cli = true
@@ -45,7 +48,7 @@ log_cli_level = "INFO"
 # log_cli_level = CRITICAL
 # INFO: more information
 required_plugins = ["pytest-html", "pytest-cov"]
-addopts = "--cov --cov-report html --cov-report term"
+addopts = "--cov job_helper --cov-config=pyproject.toml --cov-report html --cov-report term "
 
 [tool.mypy]
 exclude = []

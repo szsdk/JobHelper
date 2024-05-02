@@ -2,11 +2,13 @@ import copy
 import logging
 import os
 import pydoc
+import shutil
 import sys
-from importlib import resources
+from importlib.resources import as_file, files
 from pathlib import Path
 from typing import Any
 
+from . import init_example
 from ._tools import Tools, log_cmd
 from ._utils import dumps_toml
 from .config import JobHelperConfig, jhcfg
@@ -21,11 +23,10 @@ def init():
     cfg.commands = {"add_one": "cli.AddOne", "tools": "job_helper.cli.tools"}
     cwd = Path().resolve()
     cfg.repo_watcher.watched_repos = [cwd]
-    with (
-        open("cli.py", "w") as f,
-        resources.open_text("job_helper.init_example", "cli.py") as file,
-    ):
-        print(file.read(), file=f)
+    example_data = files(init_example)
+    for f in ["cli.py", "project.yaml"]:
+        with as_file(example_data / f) as p:
+            shutil.copy(p, f)
 
     with open("jh_config.toml", "w") as f:
         print(dumps_toml(cfg), file=f)

@@ -11,7 +11,7 @@ from job_helper import jhcfg
 from job_helper.cli import JobHelperConfig, console_main
 from pydantic import BaseModel
 
-from tests.fake_slurm import SlurmServer
+from tests.fake_slurm import ServerState, SlurmServer
 
 
 class MockJhcfg:
@@ -49,11 +49,7 @@ class MockJhcfg:
 
 
 @pytest.fixture
-def testing_jhcfg(tmp_path, monkeypatch):
-    monkeypatch.setenv(
-        "PATH", str(Path(__file__).parent / "fake_slurm_cmds"), prepend=os.pathsep
-    )
-    monkeypatch.setattr("job_helper.slurm_helper._env0", os.environ.copy())
+def testing_jhcfg(tmp_path):
     with MockJhcfg(
         project=dict(log_dir=tmp_path / "log" / "project"),
         repo_watcher=dict(watched_repos=["."]),
@@ -67,8 +63,12 @@ def testing_jhcfg(tmp_path, monkeypatch):
 
 
 @pytest.fixture
-def slurm_server():
-    with SlurmServer() as s:
+def slurm_server(monkeypatch, request):
+    monkeypatch.setenv(
+        "PATH", str(Path(__file__).parent / "fake_slurm_cmds"), prepend=os.pathsep
+    )
+    monkeypatch.setattr("job_helper.slurm_helper._env0", os.environ.copy())
+    with SlurmServer(getattr(request, "param", ServerState())) as s:
         yield s
 
 

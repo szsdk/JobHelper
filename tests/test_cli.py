@@ -1,9 +1,11 @@
+import subprocess
+
 from job_helper import cli, jhcfg
 
-from tests.utils import run_jh, testing_jhcfg
+from tests.utils import run_jh, slurm_server, testing_jhcfg
 
 
-def test_init(tmp_path, monkeypatch, capsys):
+def test_init(tmp_path, monkeypatch, capsys, slurm_server):
     monkeypatch.syspath_prepend(tmp_path)
     monkeypatch.chdir(tmp_path)
     run_jh("jh init")
@@ -12,6 +14,16 @@ def test_init(tmp_path, monkeypatch, capsys):
     captured = capsys.readouterr()
     assert captured.out == "3\n"
     assert captured.err == ""
+    subprocess.run(
+        """git init
+    git add .
+    git commit -m "init"
+    """,
+        shell=True,
+        cwd=tmp_path,
+        check=True,
+    )
+    run_jh("jh project --config project.yaml run --nodry")
 
 
 def test_tools(tmp_path, testing_jhcfg):
