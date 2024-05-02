@@ -4,7 +4,7 @@ import os
 import zlib
 from pathlib import Path
 from string import Template
-from typing import Self, Union
+from typing import Union
 
 import pydantic
 import toml
@@ -69,13 +69,13 @@ class ArgBase(BaseModel):
             s = Template(s).safe_substitute(os.environ)
         return cls.model_validate_json(s)
 
-    def log(self) -> Self:
+    def log(self):
         logging.info(self)
         return self
 
     @classmethod
     @validate_call
-    def from_config(cls, path: Union[str, Path]) -> Self:
+    def from_config(cls, path: Union[str, Path]):
         path_split = str(path).split("::")
         if len(path_split) == 2:
             path, sn = path_split
