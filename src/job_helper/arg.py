@@ -69,10 +69,6 @@ class ArgBase(BaseModel):
             s = Template(s).safe_substitute(os.environ)
         return cls.model_validate_json(s)
 
-    def log(self):
-        logging.info(self)
-        return self
-
     @classmethod
     @validate_call
     def from_config(cls, path: Union[str, Path]):
