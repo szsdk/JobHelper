@@ -116,11 +116,6 @@ class JobHelperConfig(BaseModel):
                 raise ValueError(f"{k} is a reserved command.")
         return v
 
-    def model_post_init(self, _):
-        cmd_logger_file_handler = logging.FileHandler(self.cli.log_file)
-        cmd_logger_file_handler.setFormatter(CmdLoggerFileFormatter())
-        cmd_logger.addHandler(cmd_logger_file_handler)
-
 
 class _InitJobHelperConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -145,7 +140,6 @@ def _init_logger():
     cmd_logger_file_handler = logging.FileHandler(cfg.cli.log_file)
     cmd_logger_file_handler.setFormatter(CmdLoggerFileFormatter())
     cmd_logger.addHandler(cmd_logger_file_handler)
-
     cmd_logger.addHandler(RichHandler())
 
 
