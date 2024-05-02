@@ -42,7 +42,9 @@ DirExists = Annotated[DirectoryPath, BeforeValidator(dir_exists)]
 class CLIConfig(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
     logging_cmd: Annotated[bool, Field(description="log the running command")] = True
-    log_file: Annotated[Path, Field(description="log file")] = Path("log/cmd.log")
+    log_file: Annotated[Path, Field(description="log file", validate_default=True)] = (
+        Path("log/cmd.log")
+    )
 
     @field_validator("log_file", mode="before")
     def _validate_log_dir(cls, v: Union[str, Path]) -> Path:

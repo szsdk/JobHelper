@@ -12,7 +12,7 @@ def test_init(tmp_path, monkeypatch, capsys, slurm_server):
     capsys.readouterr()
     run_jh("jh add-one -n 2 - run")
     captured = capsys.readouterr()
-    assert captured.out == "3\n"
+    assert captured.out.splitlines()[-1] == "3"
     assert captured.err == ""
     subprocess.run(
         """git init
