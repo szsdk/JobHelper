@@ -92,10 +92,6 @@ def send_response(socket, response):
 
 
 def server(init_state: Optional[str] = None):
-    context = zmq.Context()
-    socket = context.socket(zmq.REP)
-    socket.bind("tcp://*:5555")
-
     if init_state is None:
         server_state = ServerState()
     else:
@@ -109,40 +105,41 @@ def server(init_state: Optional[str] = None):
     )
     thread.start()
 
-    while True:
-        message = socket.recv().decode()
-        try:
-            command = TypeAdapter(Command).validate_json(message)
-        except ValueError as e:
-            send_response(socket, ErrorResponse(error=f"Invalid input: {message}"))
-            continue
+    with zmq.Context() as context:
+        socket = context.socket(zmq.REP)
+        socket.bind("tcp://*:5555")
 
-        if isinstance(command, SubmitCommand):
-            server_state.job_id += 1
-            job_id = server_state.job_id
-            logging.info(f"Received script for Job ID {job_id}")
-            job_queue.put((job_id, command.script))
+        while True:
+            message = socket.recv().decode()
+            try:
+                command = TypeAdapter(Command).validate_json(message)
+            except ValueError as e:
+                send_response(socket, ErrorResponse(error=f"Invalid input: {message}"))
+                continue
 
-            server_state.jobs[job_id] = JobInfo(JobID=job_id, State="PENDING")
+            if isinstance(command, SubmitCommand):
+                server_state.job_id += 1
+                job_id = server_state.job_id
+                logging.info(f"Received script for Job ID {job_id}")
+                job_queue.put((job_id, command.script))
 
-            send_response(socket, SbatchResponse(job_id=job_id))
-        elif isinstance(command, QueryStateCommand):
-            send_response(socket, server_state)
-        elif isinstance(command, StopCommand):
-            stop_event.set()
-            thread.join()
-            send_response(socket, ServerStatusResponse(status="stopped"))
-            break
-        elif isinstance(command, FinishCommand):
-            finish_event.set()
-            thread.join()
-            send_response(socket, ServerStatusResponse(status="finished"))
-            break
-        else:
-            send_response(socket, ErrorResponse(error="Invalid command"))
+                server_state.jobs[job_id] = JobInfo(JobID=job_id, State="PENDING")
 
-    socket.close()
-    context.term()
+                send_response(socket, SbatchResponse(job_id=job_id))
+            elif isinstance(command, QueryStateCommand):
+                send_response(socket, server_state)
+            elif isinstance(command, StopCommand):
+                stop_event.set()
+                thread.join()
+                send_response(socket, ServerStatusResponse(status="stopped"))
+                break
+            elif isinstance(command, FinishCommand):
+                finish_event.set()
+                thread.join()
+                send_response(socket, ServerStatusResponse(status="finished"))
+                break
+            else:
+                send_response(socket, ErrorResponse(error="Invalid command"))
 
 
 class SlurmServer:
