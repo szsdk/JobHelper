@@ -1,4 +1,5 @@
 import copy
+import os
 import shlex
 import sys
 from pathlib import Path
@@ -48,15 +49,15 @@ class MockJhcfg:
 
 
 @pytest.fixture
-def testing_jhcfg(tmp_path):
+def testing_jhcfg(tmp_path, monkeypatch):
+    monkeypatch.setenv(
+        "PATH", str(Path(__file__).parent / "fake_slurm_cmds"), prepend=os.pathsep
+    )
+    monkeypatch.setattr("job_helper.slurm_helper._env0", os.environ.copy())
     with MockJhcfg(
         project=dict(log_dir=tmp_path / "log" / "project"),
         repo_watcher=dict(watched_repos=["."]),
-        slurm=dict(
-            log_dir=tmp_path / "log" / "job",
-            sbatch_cmd="python tests/fake_slurm.py sbatch",
-            sacct_cmd="python tests/fake_slurm.py sacct",
-        ),
+        slurm=dict(log_dir=tmp_path / "log" / "job"),
         commands=dict(
             generate_data="tests.example_cmds.GenerateDataArg",
             sum_data="tests.example_cmds.SumDataArg",
