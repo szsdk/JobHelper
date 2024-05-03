@@ -1,4 +1,5 @@
 import json
+import os
 import urllib.error
 from pathlib import Path
 from unittest.mock import patch
@@ -7,7 +8,8 @@ import numpy as np
 import pytest
 import yaml
 from job_helper import Project, ProjectConfig
-from job_helper.project_helper import flowchart, render_chart
+from job_helper.project_helper import ProjectRunningResult, flowchart, render_chart
+from job_helper.slurm_helper import parse_sacct_output
 
 from tests.utils import slurm_server, testing_jhcfg
 
@@ -121,7 +123,10 @@ def test_project(project_cfg, slurm_server, testing_jhcfg, tmp_path):
     project_1.jobs["generate_data"].config["count"] = 20
     data = np.arange(project_1.jobs["generate_data"].config["count"])
 
-    project_1.run(dry=False, reruns="job_1", run_following=False)
+    project_output_fn = project_1.run(dry=False, reruns="job_1", run_following=False)
+    assert project_output_fn is not None
+    ProjectRunningResult.from_config(project_output_fn).job_states()
+
     slurm_server.complete_all()
     np.testing.assert_array_equal(
         np.loadtxt(project_1.jobs["generate_data"].config["output_fn"], dtype=int),

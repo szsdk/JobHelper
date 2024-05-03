@@ -10,6 +10,7 @@ from queue import Empty, Queue
 from threading import Event, Thread
 from typing import Literal, Optional, Union
 
+logging.getLogger("_jh_cmd").setLevel(logging.ERROR)
 import zmq
 from job_helper.slurm_helper import JobInfo
 from pydantic import BaseModel, Field, TypeAdapter, validate_call
@@ -204,13 +205,15 @@ def _format_jobs(jobs):
 
 @validate_call
 def sacct(
-    jobs: list[int],
+    jobs: Union[int, list[int]],
     format: str = "jobid,jobname,start,end,state,partition,AllocCPUS,elapse",
     allocations: bool = False,
     parsable2: bool = False,
 ):
     response = client(QueryStateCommand(), type_adapter=TypeAdapter(ServerState))
     assert isinstance(response, ServerState)
+    if isinstance(jobs, int):
+        jobs = [jobs]
     print(_format_jobs(response.jobs[i] for i in jobs))
     # return response
 

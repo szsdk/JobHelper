@@ -5,23 +5,22 @@ import copy
 import json
 import logging
 import pydoc
+import subprocess
 import urllib.request
 import zlib
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, ClassVar, Union
+from typing import Any, ClassVar, Optional, Union
 
-import toml
-import yaml
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
 
 from .arg import ArgBase
 from .config import ProjectConfig as JHProjectConfig
 from .config import jhcfg
 from .repo_watcher import RepoState, RepoWatcher
-from .slurm_helper import Slurm
+from .slurm_helper import JobInfo, Slurm, parse_sacct_output
 
-_cmd_logger = logging.getLogger("_jb_cmd")
+_cmd_logger = logging.getLogger("_jh_cmd")
 
 
 def _get_slurm_config(
@@ -29,7 +28,6 @@ def _get_slurm_config(
 ) -> dict[str, str]:
     ans = copy.deepcopy(slurm_config.model_dump())
     ans["dependency"] = slurm_config.dependency.slurm_str(jobs, dry)
-    print(ans["dependency"])
     if ans["dependency"] == "":
         del ans["dependency"]
     for k, v in ans.items():
@@ -223,7 +221,44 @@ def _get_commands():
     return ans
 
 
-class ProjectRunningResult(BaseModel):
+def generate_mermaid_gantt_chart(jobs):
+    """
+    Generate Mermaid Gantt chart code from a dictionary of jobs.
+
+    Parameters:
+    - jobs: A dictionary where keys are job names and values are JobInfo instances.
+
+    Returns:
+    - A string containing the formatted Mermaid Gantt chart code.
+    """
+    # Start the Mermaid Gantt chart code
+    mermaid_code = """gantt
+    dateFormat  YYYY-MM-DDTHH:mm:ss.SSS
+    axisFormat  %H:%M:%S
+"""
+    state_map = {
+        "COMPLETED": "done",
+        "FAILED": "crit",
+        "RUNNING": "active",
+        "PENDING": "milestone",
+    }
+    for job_name, info in jobs.items():
+        if info.State == "PENDING":
+            end = datetime.now()
+            start = end
+        elif info.State == "RUNNING":
+            start = info.Start
+            end = datetime.now()
+        else:
+            start = info.Start
+            end = info.End
+
+        mermaid_code += f"    {job_name} :{state_map[info.State]}, {start.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]}, {end.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]}\n"
+
+    return mermaid_code
+
+
+class ProjectRunningResult(ArgBase):
     config: ProjectConfig
     jobs: dict[str, int]
     time: datetime = Field(default_factory=datetime.now)
@@ -231,6 +266,28 @@ class ProjectRunningResult(BaseModel):
 
     def to_project(self) -> Project:
         return Project.model_validate(self.config.model_dump())
+
+    def job_states(self, output_fn: str = "-"):
+        """
+        This function gets the current state of the jobs and generates a Gantt chart from it.
+        """
+        id_to_name = {v: k for k, v in self.jobs.items()}
+        result = subprocess.run(
+            " ".join(
+                [
+                    jhcfg.slurm.sacct_cmd,
+                    "--jobs",
+                    ",".join(map(str, self.jobs.values())),
+                ]
+            ),
+            shell=True,
+            stdout=subprocess.PIPE,
+        )
+        job_states = {
+            id_to_name[job.JobID]: job
+            for job in parse_sacct_output(result.stdout.decode())
+        }
+        render_chart(generate_mermaid_gantt_chart(job_states), output_fn)
 
 
 class Project(ProjectConfig):
@@ -272,7 +329,7 @@ class Project(ProjectConfig):
 
     def run(
         self, reruns: str = "START", run_following: bool = True, dry: bool = True
-    ) -> None:
+    ) -> Optional[Path]:
         jobs_torun = self._get_job_torun(reruns, run_following)
         repo_states = [] if dry else RepoWatcher.from_jhcfg().repo_states()
         jobs = self._run_jobs({}, jobs_torun, dry)
@@ -280,12 +337,12 @@ class Project(ProjectConfig):
             _cmd_logger.warning("No jobs to run")
             return
         if not dry:
-            self._output_running_result(
+            return self._output_running_result(
                 jobs,
                 repo_states,
             )
 
-    def _output_running_result(self, jobs, repo_states) -> None:
+    def _output_running_result(self, jobs, repo_states) -> Path:
         result = ProjectRunningResult(
             jobs={k: v.job_id for k, v in jobs.items()},
             config=self,
@@ -296,8 +353,4 @@ class Project(ProjectConfig):
         with result_fn.open("w") as fp:
             print(result.model_dump_json(), file=fp)
         _cmd_logger.info(f"Running project {result_fn}, written to {result_fn}")
-
-    def jobflow(
-        self, reruns: str = "START", run_following: bool = True, output_fn: str = "-"
-    ):
-        self.jobflow(reruns, run_following, output_fn)
+        return result_fn

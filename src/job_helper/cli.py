@@ -17,7 +17,7 @@ from ._utils import dumps_toml
 from .config import JobHelperConfig, jhcfg
 from .project_helper import Project
 
-cmd_logger = logging.getLogger("_jb_cmd")
+cmd_logger = logging.getLogger("_jh_cmd")
 
 
 def compress_log(dt: float = 24) -> None:

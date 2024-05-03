@@ -18,7 +18,7 @@ _env0 = (  # noqa: E402
     os.environ.copy()
 )  # It should be before importing other modules, especially `mpi4py`.
 
-_cmd_logger = logging.getLogger("_jb_cmd")
+_cmd_logger = logging.getLogger("_jh_cmd")
 
 
 class JobInfo(BaseModel):

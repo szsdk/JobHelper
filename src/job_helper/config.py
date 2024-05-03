@@ -143,7 +143,7 @@ def _init_logger():
     cmd_logger.addHandler(RichHandler())
 
 
-cmd_logger = logging.getLogger("_jb_cmd")
+cmd_logger = logging.getLogger("_jh_cmd")
 _init_logger()
 
 jhcfg = _init_jhcfg(JobHelperConfig)
