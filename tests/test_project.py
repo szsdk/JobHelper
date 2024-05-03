@@ -55,14 +55,14 @@ jobs:
 
 
 def test_project_load(project_cfg, tmp_path):
-    p0 = Project(config=yaml.safe_load(project_cfg))
+    p0 = Project(**yaml.safe_load(project_cfg))
     with open(tmp_path / "project_1.yaml", "w") as f:
         print(project_cfg, file=f)
-    assert p0 == Project(config=tmp_path / "project_1.yaml")
+    assert p0 == Project.from_config(tmp_path / "project_1.yaml")
 
     with open(tmp_path / "project_1.json", "w") as f:
-        print(json.dumps(p0.config.model_dump()), file=f)
-    assert p0 == Project(config=tmp_path / "project_1.json")
+        print(json.dumps(p0.model_dump()), file=f)
+    assert p0 == Project.from_config(tmp_path / "project_1.json")
 
 
 @pytest.mark.parametrize("output_fn", ["-", "job_flow.png", "job_flow.svg"])
@@ -102,39 +102,35 @@ def test_flowchart(tmp_path):
 
 
 def test_project(project_cfg, slurm_server, testing_jhcfg, tmp_path):
-    project_1 = Project(
-        config=yaml.safe_load(project_cfg),
-    )
-    data = np.arange(project_1.config.jobs["generate_data"].config["count"])
+    project_1 = Project(**yaml.safe_load(project_cfg))
+    data = np.arange(project_1.jobs["generate_data"].config["count"])
     project_1.run(dry=False)
     slurm_server.complete_all()
     np.testing.assert_array_equal(
         np.loadtxt(
-            project_1.config.jobs["sum_data"].config["input_fn"],
+            project_1.jobs["sum_data"].config["input_fn"],
             dtype=int,
         ),
         data,
     )
     assert (
-        np.loadtxt(project_1.config.jobs["sum_data"].config["output_fn"], dtype=int)
+        np.loadtxt(project_1.jobs["sum_data"].config["output_fn"], dtype=int)
         == data.sum()
     )
 
-    project_1.config.jobs["generate_data"].config["count"] = 20
-    data = np.arange(project_1.config.jobs["generate_data"].config["count"])
+    project_1.jobs["generate_data"].config["count"] = 20
+    data = np.arange(project_1.jobs["generate_data"].config["count"])
 
     project_1.run(dry=False, reruns="job_1", run_following=False)
     slurm_server.complete_all()
     np.testing.assert_array_equal(
-        np.loadtxt(
-            project_1.config.jobs["generate_data"].config["output_fn"], dtype=int
-        ),
+        np.loadtxt(project_1.jobs["generate_data"].config["output_fn"], dtype=int),
         data,
     )
 
     project_1.run(dry=False, reruns="job_sleep")
     slurm_server.complete_all()
     assert (
-        np.loadtxt(project_1.config.jobs["sum_data"].config["output_fn"], dtype=int)
+        np.loadtxt(project_1.jobs["sum_data"].config["output_fn"], dtype=int)
         == data.sum()
     )

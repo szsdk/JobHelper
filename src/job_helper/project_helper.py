@@ -144,9 +144,6 @@ def render_chart(chart: str, output_fn: str):
 
 class ProjectConfig(ArgBase):
     jobs: dict[str, JobConfig]
-    node_styles: ClassVar[dict[str, str]] = {
-        "norun": "classDef norun fill:#ddd,stroke:#aaa,stroke-width:3px,stroke-dasharray: 5 5"
-    }
 
     def _get_job_torun(self, joblist, run_following) -> dict[str, JobConfig]:
         jobs = copy.deepcopy(self.jobs)
@@ -202,7 +199,7 @@ class JobComboArg(ProjectArgBase):
                 cmds.append(job.sh)
                 continue
             if isinstance(job, str):
-                j = project.config.jobs[job]
+                j = project.jobs[job]
             elif isinstance(job, JobConfig):
                 j = job
             else:
@@ -232,14 +229,17 @@ class ProjectRunningResult(BaseModel):
     time: datetime = Field(default_factory=datetime.now)
     repo_states: list[RepoState] = Field(default_factory=list)
 
+    def to_project(self) -> Project:
+        return Project.model_validate(self.config.model_dump())
 
-class Project(BaseModel):
+
+class Project(ProjectConfig):
     commands: dict[str, type[ArgBase]] = Field(
-        default_factory=_get_commands, validate_default=True
+        default_factory=_get_commands, validate_default=True, exclude=True
     )
-    config: ProjectConfig
+    # config: ProjectConfig
     jh_config: JHProjectConfig = Field(
-        default_factory=lambda: copy.deepcopy(jhcfg.project)
+        default_factory=lambda: copy.deepcopy(jhcfg.project), exclude=True
     )
 
     @field_validator("commands", mode="after")
@@ -250,19 +250,6 @@ class Project(BaseModel):
                 raise ValueError(f"{cmd} is reserved.")
         v.update({"job_combo": JobComboArg, "shell": ShellCommand})
         return v
-
-    @field_validator("config", mode="before")
-    def config_from_file(cls, v):
-        if not isinstance(v, (str, Path)):
-            return v
-        fn = Path(v)
-        if fn.suffix == ".yaml":
-            return yaml.safe_load(fn.read_text())
-        elif fn.suffix == ".toml":
-            return toml.load(fn)
-        elif fn.suffix == ".json":
-            return json.loads(fn.read_text())
-        raise ValueError(f"Unsupported config file: {fn}")
 
     def _run_jobs(self, jobs, jobs_torun: dict[str, JobConfig], dry: bool):
         while len(jobs_torun) > 0:
@@ -286,7 +273,7 @@ class Project(BaseModel):
     def run(
         self, reruns: str = "START", run_following: bool = True, dry: bool = True
     ) -> None:
-        jobs_torun = self.config._get_job_torun(reruns, run_following)
+        jobs_torun = self._get_job_torun(reruns, run_following)
         repo_states = [] if dry else RepoWatcher.from_jhcfg().repo_states()
         jobs = self._run_jobs({}, jobs_torun, dry)
         if len(jobs) == 0:
@@ -301,7 +288,7 @@ class Project(BaseModel):
     def _output_running_result(self, jobs, repo_states) -> None:
         result = ProjectRunningResult(
             jobs={k: v.job_id for k, v in jobs.items()},
-            config=self.config,
+            config=self,
             repo_states=repo_states,
         )
 
@@ -313,4 +300,4 @@ class Project(BaseModel):
     def jobflow(
         self, reruns: str = "START", run_following: bool = True, output_fn: str = "-"
     ):
-        self.config.jobflow(reruns, run_following, output_fn)
+        self.jobflow(reruns, run_following, output_fn)

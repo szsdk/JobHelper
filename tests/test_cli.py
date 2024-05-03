@@ -23,7 +23,7 @@ def test_init(tmp_path, monkeypatch, capsys, slurm_server):
         cwd=tmp_path,
         check=True,
     )
-    run_jh("jh project --config project.yaml run --nodry")
+    run_jh("jh project from-config project.yaml run --nodry")
 
 
 def test_tools(tmp_path, testing_jhcfg):

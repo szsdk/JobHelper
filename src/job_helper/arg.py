@@ -1,4 +1,5 @@
 import base64
+import json
 import logging
 import os
 import zlib
@@ -84,6 +85,9 @@ class ArgBase(BaseModel):
         if p.suffix == ".yaml":
             with open(path) as fp:
                 return cls.model_validate(_multi_index(yaml.safe_load(fp), sn))
+        if p.suffix == ".json":
+            with open(path) as fp:
+                return cls.model_validate(_multi_index(json.load(fp), sn))
         raise ValueError(f"Unsupported config file format: {p.suffix}")
 
     def setattr(self, **kargs):
