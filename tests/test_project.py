@@ -103,7 +103,7 @@ def test_flowchart(tmp_path):
             raise e
 
 
-def test_project(project_cfg, slurm_server, testing_jhcfg, tmp_path):
+def test_project(project_cfg, slurm_server, testing_jhcfg):
     project_1 = Project(**yaml.safe_load(project_cfg))
     data = np.arange(project_1.jobs["generate_data"].config["count"])
     project_1.run(dry=False)

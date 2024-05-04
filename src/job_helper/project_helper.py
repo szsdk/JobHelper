@@ -3,7 +3,6 @@ from __future__ import annotations
 import base64
 import copy
 import json
-import logging
 import pydoc
 import subprocess
 import urllib.request
@@ -12,6 +11,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, ClassVar, Optional, Union
 
+from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
 
 from .arg import ArgBase
@@ -19,8 +19,6 @@ from .config import ProjectConfig as JHProjectConfig
 from .config import jhcfg
 from .repo_watcher import RepoState, RepoWatcher
 from .slurm_helper import JobInfo, Slurm, parse_sacct_output
-
-_cmd_logger = logging.getLogger("_jh_cmd")
 
 
 def _get_slurm_config(
@@ -41,9 +39,6 @@ class ShellCommand(ArgBase):
 
     def slurm(self) -> Slurm:
         return Slurm(run_cmd=self.sh)
-
-
-cmd_logger = logging.getLogger("_jh_cmd")
 
 
 class ProjectArgBase(ArgBase):
@@ -74,7 +69,7 @@ class SlrumDependency(BaseModel):
                     elif jobs[j].job_id is not None:
                         ansk.append(str(jobs[j].job_id))
                 else:
-                    logging.warning(f"job {j} not found")
+                    logger.warning(f"job {j} not found")
             if len(ansk) > 0:
                 ans.append(f"{k}:{':'.join(ansk)}")
         return ",".join(ans)
@@ -334,7 +329,7 @@ class Project(ProjectConfig):
         repo_states = [] if dry else RepoWatcher.from_jhcfg().repo_states()
         jobs = self._run_jobs({}, jobs_torun, dry)
         if len(jobs) == 0:
-            _cmd_logger.warning("No jobs to run")
+            logger.warning("No jobs to run")
             return
         if not dry:
             return self._output_running_result(
@@ -352,5 +347,5 @@ class Project(ProjectConfig):
         result_fn = self.jh_config.log_dir / f"{jobs[list(jobs.keys())[0]].job_id}.json"
         with result_fn.open("w") as fp:
             print(result.model_dump_json(), file=fp)
-        _cmd_logger.info(f"Running project {result_fn}, written to {result_fn}")
+        logger.info(f"Running project {result_fn}, written to {result_fn}")
         return result_fn

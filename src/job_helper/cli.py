@@ -1,6 +1,5 @@
 import copy
 import datetime
-import logging
 import os
 import pydoc
 import shlex
@@ -12,12 +11,13 @@ from importlib.resources import as_file, files
 from pathlib import Path
 from typing import Any
 
+from loguru import logger
+
 from . import init_example
 from ._utils import dumps_toml
 from .config import JobHelperConfig, jhcfg
 from .project_helper import Project
 
-cmd_logger = logging.getLogger("_jh_cmd")
 
 
 def compress_log(dt: float = 24) -> None:
@@ -37,9 +37,9 @@ def compress_log(dt: float = 24) -> None:
     files += [f for f in log_dir.glob("*.sh") if f.stat().st_mtime < time_threshold]
     # Compress the files
     if len(files) == 0:
-        cmd_logger.warning("No files to compress.")
+        logger.warning("No files to compress.")
         return
-    cmd_logger.info(f"Compressing {len(files)} files to {now_str}.tar.gz")
+    logger.info(f"Compressing {len(files)} files to {now_str}.tar.gz")
     with tarfile.open(log_dir / f"{now_str}.tar.gz", "w:gz") as tar:
         for file in files:
             tar.add(file)
@@ -53,7 +53,7 @@ def log_cmd() -> None:
     log_sh ls -all
     ```
     """
-    cmd_logger.info(shlex.join(sys.argv), extra={"typename": "CMD"})
+    logger.info(shlex.join(sys.argv), extra={"typename": "CMD"})
 
 
 class Tools:
@@ -65,7 +65,7 @@ class Tools:
         ```
         """
         subprocess.run(command, shell=True, check=True)
-        cmd_logger.info(command, extra={"typename": "SH"})
+        logger.info(command, extra={"typename": "SH"})
 
     def log_message(self, message: str, level: str = "info") -> None:
         """
@@ -75,9 +75,9 @@ class Tools:
         ```
         """
         log_cmds = {
-            "info": cmd_logger.info,
-            "error": cmd_logger.error,
-            "warning": cmd_logger.warning,
+            "info": logger.info,
+            "error": logger.error,
+            "warning": logger.warning,
         }
         log_cmds[level](message, extra={"typename": "MSG"})
 
@@ -97,7 +97,7 @@ def init():
     """
     Initialize the project directory.
     """
-    cfg: JobHelperConfig = copy.copy(jhcfg)
+    cfg = JobHelperConfig()
     cfg.commands = {"add_one": "cli.AddOne", "tools": "job_helper.cli.tools"}
     cwd = Path().resolve()
     cfg.repo_watcher.watched_repos = [cwd]
@@ -124,6 +124,8 @@ def init():
 def console_main():
     import fire
 
+    logger.enable("job_helper")
+    logger.add(jhcfg.cli.log_file)
     cmds: dict[str, Any] = {"project": Project, "init": init}
 
     sys.path.append(os.getcwd())

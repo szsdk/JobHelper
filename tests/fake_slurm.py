@@ -1,6 +1,5 @@
 import base64
 import json
-import logging
 import subprocess
 import sys
 import time
@@ -10,9 +9,9 @@ from queue import Empty, Queue
 from threading import Event, Thread
 from typing import Literal, Optional, Union
 
-logging.getLogger("_jh_cmd").setLevel(logging.ERROR)
 import zmq
 from job_helper.slurm_helper import JobInfo
+from loguru import logger
 from pydantic import BaseModel, Field, TypeAdapter, validate_call
 
 
@@ -121,7 +120,7 @@ def server(init_state: Optional[str] = None):
             if isinstance(command, SubmitCommand):
                 server_state.job_id += 1
                 job_id = server_state.job_id
-                logging.info(f"Received script for Job ID {job_id}")
+                logger.info(f"Received script for Job ID {job_id}")
                 job_queue.put((job_id, command.script))
 
                 server_state.jobs[job_id] = JobInfo(JobID=job_id, State="PENDING")

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import logging
 import os
 from functools import cached_property
 from pathlib import Path
 from typing import Annotated, ClassVar, Union
 
 import toml
+from loguru import logger as logger
 from pydantic import (
     BaseModel,
     BeforeValidator,
@@ -16,18 +16,6 @@ from pydantic import (
     field_validator,
     model_validator,
 )
-from rich.logging import RichHandler
-
-
-class CmdLoggerFileFormatter(logging.Formatter):
-    def format(self, record: logging.LogRecord) -> str:
-        typename = getattr(record, "typename", None)
-        if typename is None:
-            self._style._fmt = "%(asctime)s %(levelname)-8s>> %(message)s"
-        else:
-            record.label = f"{record.levelname[0]}-{typename}"
-            self._style._fmt = "%(asctime)s %(label)-8s>> %(message)s"
-        return super().format(record)
 
 
 def dir_exists(v: Union[str, Path]) -> Path:
@@ -43,7 +31,7 @@ class CLIConfig(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
     logging_cmd: Annotated[bool, Field(description="log the running command")] = True
     log_file: Annotated[Path, Field(description="log file", validate_default=True)] = (
-        Path("log/cmd.log")
+        Path("cmd.log")
     )
 
     @field_validator("log_file", mode="before")
@@ -62,12 +50,12 @@ class RepoWatcherConfig(BaseModel):
         ans = []
         for p in v:
             if not p.is_dir():
-                cmd_logger.warning(
+                logger.warning(
                     f"{p} is not a directory. It is removed from repo_watcher"
                 )
                 continue
             if not (p / ".git").exists():
-                cmd_logger.warning(
+                logger.warning(
                     f"{p} is not a git repo. It is removed from repo_watcher"
                 )
                 continue
@@ -85,12 +73,12 @@ class SlurmConfig(BaseModel):
     shell: str = "/bin/sh"
     sbatch_cmd: Annotated[str, Field(description="sbatch command")] = "sbatch"
     sacct_cmd: str = "sacct"
-    log_dir: Annotated[DirExists, Field(validate_default=True)] = Path("log/jobs")
+    log_dir: Annotated[DirExists, Field(validate_default=True)] = Path()
 
 
 class ProjectConfig(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
-    log_dir: DirExists = Field(default=Path("log/projects"), validate_default=True)
+    log_dir: DirExists = Field(default=Path(""), validate_default=True)
 
 
 class JobHelperConfig(BaseModel):
@@ -117,11 +105,6 @@ class JobHelperConfig(BaseModel):
         return v
 
 
-class _InitJobHelperConfig(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    cli: CLIConfig = Field(default_factory=CLIConfig)
-
-
 def _init_jhcfg(cls):
     fn = None
     if "JHCFG" in os.environ:
@@ -130,20 +113,9 @@ def _init_jhcfg(cls):
         fn = "jh_config.toml"
 
     if fn is None:
+        logger.warning("jh_config.toml or JHCFG is not found. Use default settings.")
         return cls()
     return cls.model_validate(toml.load(fn))
 
-
-def _init_logger():
-    cmd_logger.setLevel(logging.DEBUG)
-    cfg = _init_jhcfg(_InitJobHelperConfig)
-    cmd_logger_file_handler = logging.FileHandler(cfg.cli.log_file)
-    cmd_logger_file_handler.setFormatter(CmdLoggerFileFormatter())
-    cmd_logger.addHandler(cmd_logger_file_handler)
-    cmd_logger.addHandler(RichHandler())
-
-
-cmd_logger = logging.getLogger("_jh_cmd")
-_init_logger()
 
 jhcfg = _init_jhcfg(JobHelperConfig)

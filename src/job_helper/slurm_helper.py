@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import copy
 import datetime
-import logging
 import os
 import subprocess
 import sys
 from datetime import datetime
 from typing import Literal, Optional, Union
 
+from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
 from .config import JobHelperConfig, jhcfg
@@ -17,8 +17,6 @@ from .config import SlurmConfig as JHSlurmConfig
 _env0 = (  # noqa: E402
     os.environ.copy()
 )  # It should be before importing other modules, especially `mpi4py`.
-
-_cmd_logger = logging.getLogger("_jh_cmd")
 
 
 class JobInfo(BaseModel):
@@ -87,7 +85,7 @@ class Slurm(BaseModel):
         )
         print(self.script)
         if dry:
-            logging.info("It is a dry run.")
+            logger.info("It is a dry run.")
             return self
 
         result = subprocess.run(
@@ -95,10 +93,10 @@ class Slurm(BaseModel):
         )
         stdout = result.stdout.decode("utf-8").strip()
         if result.returncode != 0:
-            logging.error(result.stderr)
+            logger.error(result.stderr)
             sys.exit(1)
         self.job_id = int(stdout)
-        _cmd_logger.info("Submitted batch job %s", stdout)
+        logger.info("Submitted batch job %s", stdout)
         if save_script:
             with (self.jh_config.log_dir / f"{self.job_id}_slurm.sh").open("w") as fp:
                 print(self.script, file=fp)
