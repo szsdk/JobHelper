@@ -96,7 +96,7 @@ class Slurm(BaseModel):
             logger.error(result.stderr)
             sys.exit(1)
         self.job_id = int(stdout)
-        logger.info("Submitted batch job %s", stdout)
+        logger.info("Submitted batch job {}", stdout)
         if save_script:
             with (self.jh_config.log_dir / f"{self.job_id}_slurm.sh").open("w") as fp:
                 print(self.script, file=fp)
