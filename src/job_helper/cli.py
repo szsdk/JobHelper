@@ -52,7 +52,7 @@ def log_cmd() -> None:
     log_sh ls -all
     ```
     """
-    logger.info(shlex.join(sys.argv), extra={"typename": "CMD"})
+    logger.trace("running jh command", command=sys.argv, extra={"typename": "CMD"})
 
 
 class Tools:
@@ -64,7 +64,7 @@ class Tools:
         ```
         """
         subprocess.run(command, shell=True, check=True)
-        logger.info(command, extra={"typename": "SH"})
+        logger.trace("running a sh command", command=command, extra={"typename": "SH"})
 
     def log_message(self, message: str, level: str = "info") -> None:
         """
@@ -131,6 +131,8 @@ def init():
 def console_main():
     import fire
 
+    logger.remove()
+    logger.add(sys.stderr, level="WARNING")
     logger.enable("job_helper")
     if sys.argv[1] == "init":
         jhcfg.cli.log_file = Path("log/cmd.log")
@@ -138,7 +140,7 @@ def console_main():
         jhcfg.cli.logging_cmd = True
 
     if jhcfg.cli.logging_cmd:
-        handler_id = logger.add(jhcfg.cli.log_file, serialize=jhcfg.cli.serialize_log)
+        logger.add(jhcfg.cli.log_file, serialize=jhcfg.cli.serialize_log, level="TRACE")
     cmds: dict[str, Any] = {
         "project": Project,
         "init": init,
@@ -158,7 +160,6 @@ def console_main():
     fire.Fire(cmds)
     log_cmd()
     sys.path.pop(-1)
-    logger.remove(handler_id)
 
 
 tools = Tools()
