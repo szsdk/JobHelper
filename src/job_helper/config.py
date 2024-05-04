@@ -33,6 +33,10 @@ class CLIConfig(BaseModel):
     log_file: Annotated[Path, Field(description="log file", validate_default=True)] = (
         Path("cmd.log")
     )
+    serialize_log: Annotated[
+        bool,
+        Field(description="serialize log, set to False to get a human-readable log"),
+    ] = True
 
     @field_validator("log_file", mode="before")
     def _validate_log_dir(cls, v: Union[str, Path]) -> Path:
@@ -88,7 +92,6 @@ class JobHelperConfig(BaseModel):
 
     model_config = ConfigDict(validate_assignment=True)
     _reserved_commands: ClassVar[list[str]] = ["init", "project"]
-    console_width: Annotated[int, Field(description="console width")] = 120
     commands: dict[str, str] = Field(default_factory=dict)
     slurm: SlurmConfig = Field(
         default_factory=SlurmConfig, description="Slurm configuration"
