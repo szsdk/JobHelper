@@ -116,11 +116,29 @@ def flowchart(nodes: dict[str, str], links: dict[tuple[str, str], str]):
     return "\n".join(flow)
 
 
+_HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="en">
+  <body>
+    <pre class="mermaid">
+{mermaid_code}
+    </pre>
+    <script type="module">
+      import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    </script>
+  </body>
+</html>"""
+
+
 def render_chart(chart: str, output_fn: str):
     if output_fn == "-":
         print(chart)
         return
     output = Path(output_fn)
+    if output.suffix == ".html":
+        with output.open("w") as fp:
+            print(_HTML_TEMPLATE.format(mermaid_code=chart), file=fp)
+        return
     url = base64.urlsafe_b64encode(zlib.compress(chart.encode(), 9)).decode("ascii")
     if output.suffix == ".png":
         url = "https://kroki.io/mermaid/png/" + url
