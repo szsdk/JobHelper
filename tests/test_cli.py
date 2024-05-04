@@ -49,6 +49,9 @@ jh add-one -n 2 - run
 jh project from-config project.yaml run --nodry
 jh project-result from-config log/project/1.json - job_states
 jh project-result from-config log/project/1.json - job_states -o tt.html
+jh tools log-sh "echo 123 >> log/slurm/test.out"
+jh tools log-message "hello" warning
+jh tools compress-log 0
     """,
         shell=True,
         cwd=tmp_path,
