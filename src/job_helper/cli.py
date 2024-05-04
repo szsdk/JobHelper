@@ -96,6 +96,9 @@ def init():
     """
     Initialize the project directory.
     """
+    if Path("jh_config.toml").exists():
+        logger.error("jh_config.toml already exists.")
+        exit(1)
     cfg = JobHelperConfig(
         project={"log_dir": "log/project"},
         slurm={"log_dir": "log/slurm"},
