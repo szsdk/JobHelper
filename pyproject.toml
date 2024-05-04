@@ -29,17 +29,9 @@ jh = "job_helper:cli.console_main"
 
 [tool.setuptools]
 zip-safe = false
-packages = ["job_helper"]
-include-package-data = true
-
-[tool.setuptools.package-dir]
-job_helper = "src/job_helper/"
 
 [tool.setuptools.package-data]
-job_helper = [
-    "init_example/cli.py",
-    "init_example/project.toml",
-]
+"job_helper.init_example" = ["*.yaml"]
 
 [tool.pytest.ini_options]
 log_cli = true
