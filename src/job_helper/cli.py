@@ -131,8 +131,7 @@ def init():
 def console_main():
     import fire
 
-    logger.remove()
-    logger.add(sys.stderr, level="WARNING")
+    handler_id = logger.add(sys.stderr, level="WARNING")
     logger.enable("job_helper")
     if sys.argv[1] == "init":
         jhcfg.cli.log_file = Path("log/cmd.log")
@@ -160,6 +159,8 @@ def console_main():
     fire.Fire(cmds)
     log_cmd()
     sys.path.pop(-1)
+    logger.remove(handler_id)
+    logger.disable("job_helper")
 
 
 tools = Tools()
