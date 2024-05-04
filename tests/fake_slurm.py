@@ -1,5 +1,6 @@
 import base64
 import json
+import os
 import subprocess
 import sys
 import time
@@ -13,6 +14,8 @@ import zmq
 from job_helper.slurm_helper import JobInfo
 from loguru import logger
 from pydantic import BaseModel, Field, TypeAdapter, validate_call
+
+PORT = int(os.environ["_TEST_PORT"]) if "_TEST_PORT" in os.environ else 5555
 
 
 class SubmitCommand(BaseModel):
@@ -53,10 +56,14 @@ Command = Union[SubmitCommand, StopCommand, FinishCommand, QueryStateCommand]
 Response = Union[ServerState, SbatchResponse, ServerStatusResponse, ErrorResponse]
 
 
-def client(command: Command, type_adapter=TypeAdapter(Response)) -> Response:
+def client(command: Command, port=None, type_adapter=TypeAdapter(Response)) -> Response:
+    # The default port should be None and set to PORT in the function. This is because the default
+    # value of PORT may be mocked by pytest.
+    if port is None:
+        port = PORT
     context = zmq.Context()
     socket = context.socket(zmq.REQ)
-    socket.connect("tcp://localhost:5555")
+    socket.connect(f"tcp://localhost:{port}")
 
     socket.send(command.model_dump_json().encode())
 
@@ -91,7 +98,11 @@ def send_response(socket, response):
     socket.send(json.dumps(response.model_dump_json()).encode())
 
 
-def server(init_state: Optional[str] = None):
+def server(init_state: Optional[str] = None, port=None):
+    # The default port should be None and set to PORT in the function. This is because the default
+    # value of PORT may be mocked by pytest.
+    if port is None:
+        port = PORT
     if init_state is None:
         server_state = ServerState()
     else:
@@ -107,13 +118,13 @@ def server(init_state: Optional[str] = None):
 
     with zmq.Context() as context:
         socket = context.socket(zmq.REP)
-        socket.bind("tcp://*:5555")
+        socket.bind(f"tcp://*:{port}")
 
         while True:
             message = socket.recv().decode()
             try:
                 command = TypeAdapter(Command).validate_json(message)
-            except ValueError as e:
+            except ValueError:
                 send_response(socket, ErrorResponse(error=f"Invalid input: {message}"))
                 continue
 
