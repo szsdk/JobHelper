@@ -9,12 +9,13 @@ authors = [{ name = "Shen Zhou", email = "shen34206@hotmail.com" }]
 description = ""
 license = { text = "MIT" }
 dependencies = [
-   "fire", "loguru", "pydantic", "numpy", "toml", "PyYAML"
+   "fire", "loguru", "pydantic", "toml", "PyYAML"
 ]
 
 [project.optional-dependencies]
 tests = [
     "coverage>=5.0.3",
+    "numpy",
     "psutil",
     "pdoc3",
     "pytest",
@@ -41,13 +42,6 @@ log_cli_level = "INFO"
 # INFO: more information
 required_plugins = ["pytest-html", "pytest-cov"]
 addopts = "--cov job_helper --cov-config=pyproject.toml --cov-report html --cov-report term "
-
-[tool.mypy]
-exclude = []
-
-[[tool.mypy.overrides]]
-module = ["scipy.*"]
-ignore_missing_imports = true
 
 [tool.coverage.run]
 branch = true
