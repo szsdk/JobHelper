@@ -99,9 +99,11 @@ def init():
     if Path("jh_config.toml").exists():
         logger.error("jh_config.toml already exists.")
         exit(1)
+
     cfg = JobHelperConfig(
         project={"log_dir": "log/project"},
         slurm={"log_dir": "log/slurm"},
+        cli={"log_file": "log/cmd.log"},
         commands={"add_one": "cli.AddOne", "tools": "job_helper.cli.tools"},
     )
 
@@ -130,7 +132,13 @@ def console_main():
     import fire
 
     logger.enable("job_helper")
-    handler_id = logger.add(jhcfg.cli.log_file)
+    if sys.argv[1] == "init":
+        jhcfg.cli.log_file = Path("log/cmd.log")
+        jhcfg.cli.serialize_log = True
+        jhcfg.cli.logging_cmd = True
+
+    if jhcfg.cli.logging_cmd:
+        handler_id = logger.add(jhcfg.cli.log_file, serialize=jhcfg.cli.serialize_log)
     cmds: dict[str, Any] = {
         "project": Project,
         "init": init,
@@ -147,9 +155,8 @@ def console_main():
         cmds.update(
             {cmd: pydoc.locate(arg_class) for cmd, arg_class in jhcfg.commands.items()}
         )
-    if jhcfg.cli.logging_cmd:
-        log_cmd()
     fire.Fire(cmds)
+    log_cmd()
     sys.path.pop(-1)
     logger.remove(handler_id)
 
