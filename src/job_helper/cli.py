@@ -16,8 +16,7 @@ from loguru import logger
 from . import init_example
 from ._utils import dumps_toml
 from .config import JobHelperConfig, jhcfg
-from .project_helper import Project
-
+from .project_helper import Project, ProjectRunningResult
 
 
 def compress_log(dt: float = 24) -> None:
@@ -97,17 +96,20 @@ def init():
     """
     Initialize the project directory.
     """
-    cfg = JobHelperConfig()
-    cfg.commands = {"add_one": "cli.AddOne", "tools": "job_helper.cli.tools"}
-    cwd = Path().resolve()
-    cfg.repo_watcher.watched_repos = [cwd]
-    example_data = files(init_example)
+    cfg = JobHelperConfig(
+        project={"log_dir": "log/project"},
+        slurm={"log_dir": "log/slurm"},
+        commands={"add_one": "cli.AddOne", "tools": "job_helper.cli.tools"},
+    )
 
-    if not (cwd / ".git").exists():
-        print(
-            "This is not a git repository. It is recommended to use git for version control.\n"
+    if (Path() / ".git").exists():
+        cfg.repo_watcher.watched_repos = [Path().resolve()]
+    else:
+        logger.warning(
+            "This is not a git repository. It is recommended to use git for version control."
         )
 
+    example_data = files(init_example)
     for f in ["cli.py", "project.yaml"]:
         with as_file(example_data / f) as p:
             shutil.copy(p, f)
@@ -125,8 +127,12 @@ def console_main():
     import fire
 
     logger.enable("job_helper")
-    logger.add(jhcfg.cli.log_file)
-    cmds: dict[str, Any] = {"project": Project, "init": init}
+    handler_id = logger.add(jhcfg.cli.log_file)
+    cmds: dict[str, Any] = {
+        "project": Project,
+        "init": init,
+        "project-result": ProjectRunningResult,
+    }
 
     sys.path.append(os.getcwd())
     # pre check command to avoid unnecessary import and improve performance
@@ -142,6 +148,7 @@ def console_main():
         log_cmd()
     fire.Fire(cmds)
     sys.path.pop(-1)
+    logger.remove(handler_id)
 
 
 tools = Tools()
