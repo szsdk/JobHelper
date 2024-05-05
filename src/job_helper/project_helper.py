@@ -278,6 +278,8 @@ class Project(ProjectConfig):
                     else job_arg.slurm()
                 )
                 c = jobs[jobname].config
+                for k, v in job.slurm_config:
+                    setattr(c, k, v)
                 c.dependency = c.dependency.replace_with_job_id(jobs, dry)
                 c.job_name = jobname
                 jobs[jobname].sbatch(dry=dry)

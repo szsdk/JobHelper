@@ -104,8 +104,7 @@ class SlurmConfig(BaseModel):
 
     def preamble(self):
         preamble = []
-        for k in self.model_fields.keys():
-            v = getattr(self, k)
+        for k, v in self:
             if v is None:
                 continue
             if k == "dependency":
