@@ -85,6 +85,7 @@ class SlurmConfig(BaseModel):
     model_config = ConfigDict(extra="allow", arbitrary_types_allowed=True)
     job_name: str = ""
     dependency: Union[str, SlrumDependency] = SlrumDependency()
+    output: str = Field(default_factory=lambda: f"{jhcfg.slurm.log_dir}/%j.out")
 
     @model_validator(mode="before")
     @classmethod
@@ -92,8 +93,6 @@ class SlurmConfig(BaseModel):
         if isinstance(v, dict):
             # TODO: read defaults from jhcfg
             v = {k.replace("-", "_"): v for k, v in v.items()}
-            if "output" not in v:
-                v["output"] = f"{jhcfg.slurm.log_dir}/%j.out"
         return v
 
     @field_validator("dependency", mode="before")

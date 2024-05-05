@@ -17,7 +17,7 @@ from .arg import ArgBase
 from .config import ProjectConfig as JHProjectConfig
 from .config import jhcfg
 from .repo_watcher import RepoState, RepoWatcher
-from .slurm_helper import SlrumDependency, Slurm, SlurmConfig, parse_sacct_output
+from .slurm_helper import Slurm, SlurmConfig, parse_sacct_output
 
 
 class ShellCommand(ArgBase):
