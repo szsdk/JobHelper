@@ -14,7 +14,7 @@ jobs:
     command: job_combo
     config:
       jobs:
-        - sh: sleep 1
+        - sh: sleep 0.5
         - job2_0
     slurm_config:
       dependency:
