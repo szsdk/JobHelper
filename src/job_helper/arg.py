@@ -12,7 +12,7 @@ import toml
 import yaml
 from pydantic import BaseModel, validate_call
 
-from .slurm_helper import Slurm
+# from .slurm_helper import Slurm
 
 
 def _multi_index(d, indices: str):
@@ -95,6 +95,6 @@ class ArgBase(BaseModel):
             setattr(self, k, v)
         return self
 
-    def slurm(self) -> Slurm:
+    def script(self) -> str:
         # TODO: this method should be removed from this class
         raise NotImplementedError

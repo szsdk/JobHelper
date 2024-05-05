@@ -84,7 +84,7 @@ class SlrumDependency(BaseModel):
 class SlurmConfig(BaseModel):
     model_config = ConfigDict(extra="allow", arbitrary_types_allowed=True)
     job_name: str = ""
-    dependency: Union[str, SlrumDependency] = SlrumDependency()
+    dependency: SlrumDependency = SlrumDependency()
     output: str = Field(default_factory=lambda: f"{jhcfg.slurm.log_dir}/%j.out")
 
     @model_validator(mode="before")

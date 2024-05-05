@@ -15,9 +15,9 @@ def test_Arg(tmpdir):
     arg.run()
     np.testing.assert_array_equal(np.loadtxt(arg.output_fn, dtype=int), np.arange(100))
     assert GenerateDataArg.from_base64(arg.to_base64()) == arg
-    arg.slurm()
+    arg.script()
 
     sum_arg = SumDataArg(input_fn=arg.output_fn, output_fn=str(tmpdir / "sum.txt"))
     sum_arg.run()
     assert np.loadtxt(sum_arg.output_fn, dtype=int) == np.arange(100).sum()
-    sum_arg.slurm()
+    sum_arg.script()

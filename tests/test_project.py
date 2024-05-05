@@ -1,5 +1,4 @@
 import json
-import os
 import urllib.error
 from pathlib import Path
 from unittest.mock import patch
@@ -9,7 +8,6 @@ import pytest
 import yaml
 from job_helper import Project, ProjectConfig
 from job_helper.project_helper import ProjectRunningResult, flowchart, render_chart
-from job_helper.slurm_helper import parse_sacct_output
 
 from tests.utils import slurm_server, testing_jhcfg
 

@@ -11,9 +11,7 @@ class AddOne(ArgBase):
     def run(self):
         return self.num + 1
 
-    def slurm(self):
-        return Slurm(
-            run_cmd=f"""
+    def script(self):
+        return f"""
 cd {Path(__file__).parent}
 jh add-one from-base64 {self.to_base64()} - run"""
-        )

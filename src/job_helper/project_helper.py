@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Optional, Union
 
 from loguru import logger
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import Field, field_validator
 
 from .arg import ArgBase
 from .config import ProjectConfig as JHProjectConfig
@@ -23,12 +23,12 @@ from .slurm_helper import Slurm, SlurmConfig, parse_sacct_output
 class ShellCommand(ArgBase):
     sh: str
 
-    def slurm(self) -> Slurm:
-        return Slurm(run_cmd=self.sh)
+    def script(self) -> str:
+        return self.sh
 
 
 class ProjectArgBase(ArgBase):
-    def slurm(self, project: Project) -> Slurm:
+    def script(self, project: Project) -> str:
         raise NotImplementedError
 
 
@@ -147,7 +147,7 @@ class ProjectConfig(ArgBase):
 class JobComboArg(ProjectArgBase):
     jobs: list[Union[str, ShellCommand, JobConfig]]
 
-    def slurm(self, project: Project) -> Slurm:
+    def script(self, project: Project) -> str:
         cmds = []
         for job in self.jobs:
             if isinstance(job, ShellCommand):
@@ -162,11 +162,9 @@ class JobComboArg(ProjectArgBase):
 
             j = project.commands[j.command].model_validate(j.config)
             cmds.append(
-                (
-                    j.slurm(project) if isinstance(j, ProjectArgBase) else j.slurm()
-                ).run_cmd
+                j.script(project) if isinstance(j, ProjectArgBase) else j.script()
             )
-        return Slurm(run_cmd="\n".join(cmds))
+        return "\n".join(cmds)
 
 
 def _get_commands():
@@ -272,16 +270,15 @@ class Project(ProjectConfig):
                     self._run_jobs(jobs, jobs_torun, dry)
             job_arg = self.commands[job.command].model_validate(job.config)
             if job.slurm_config is not None:
-                jobs[jobname] = (
-                    job_arg.slurm(self)
-                    if isinstance(job_arg, ProjectArgBase)
-                    else job_arg.slurm()
-                )
-                c = jobs[jobname].config
-                for k, v in job.slurm_config:
-                    setattr(c, k, v)
+                c = copy.deepcopy(job.slurm_config)
                 c.dependency = c.dependency.replace_with_job_id(jobs, dry)
                 c.job_name = jobname
+                jobs[jobname] = Slurm(
+                    run_cmd=job_arg.script(self)
+                    if isinstance(job_arg, ProjectArgBase)
+                    else job_arg.script(),
+                    config=c,
+                )
                 jobs[jobname].sbatch(dry=dry)
         return jobs
 

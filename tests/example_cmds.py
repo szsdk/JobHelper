@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 
 import numpy as np
-from job_helper import ArgBase, Slurm
+from job_helper import ArgBase
 
 
 class GenerateDataArg(ArgBase):
@@ -15,14 +15,12 @@ class GenerateDataArg(ArgBase):
             for i in range(self.count):
                 print(i, file=f)
 
-    def slurm(self):
-        return Slurm(
-            run_cmd=f"""
+    def script(self):
+        return f"""
 # {self}
 export PYTHONPATH={Path(__file__).parent.parent}
 python {__file__} {type(self).__name__} from_base64 '{self.to_base64()}' - run
         """
-        )
 
 
 class SumDataArg(ArgBase):
@@ -36,14 +34,11 @@ class SumDataArg(ArgBase):
         with open(self.output_fn, "w") as f:
             print(data.sum(), file=f)
 
-    def slurm(self):
-        return Slurm(
-            run_cmd=f"""
+    def script(self):
+        return f"""
 # {self}
 export PYTHONPATH={Path(__file__).parent.parent}
-python {__file__} {type(self).__name__} from_base64 '{self.to_base64()}' - run
-        """
-        )
+python {__file__} {type(self).__name__} from_base64 '{self.to_base64()}' - run"""
 
 
 if __name__ == "__main__":
