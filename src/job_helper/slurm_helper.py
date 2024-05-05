@@ -9,7 +9,14 @@ from datetime import datetime
 from typing import Literal, Optional, Union
 
 from loguru import logger
-from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    computed_field,
+    field_validator,
+    model_validator,
+)
 
 from .config import JobHelperConfig, jhcfg
 from .config import SlurmConfig as JHSlurmConfig
@@ -38,6 +45,80 @@ def parse_sacct_output(s) -> list[JobInfo]:
     return ans
 
 
+class SlrumDependency(BaseModel):
+    after: list[str] = Field(default_factory=list)
+    afterany: list[str] = Field(default_factory=list)
+    afternotok: list[str] = Field(default_factory=list)
+    afterok: list[str] = Field(default_factory=list)
+    singleton: bool = False  # Placeholder; TODO: Implement this
+
+    def __iter__(self):
+        for k in ["after", "afterany", "afternotok", "afterok"]:
+            yield from getattr(self, k)
+
+    def slurm_str(self) -> str:
+        ans = []
+        for k in ["after", "afterany", "afternotok", "afterok"]:
+            js = getattr(self, k)
+            if len(js) > 0:
+                ans.append(f"{k}:{':'.join(js)}")
+        return ",".join(ans)
+
+    def replace_with_job_id(self, jobs, dry: bool):
+        ans = copy.deepcopy(self)
+        for k in ["after", "afterany", "afternotok", "afterok"]:
+            js = getattr(self, k)
+            ansk = getattr(ans, k)
+            ansk.clear()
+            for j in js:
+                if j in jobs:
+                    if dry:
+                        ansk.append(j)
+                    elif jobs[j].job_id is not None:
+                        ansk.append(str(jobs[j].job_id))
+                else:
+                    logger.warning(f"job {j} not found")
+        return ans
+
+
+class SlurmConfig(BaseModel):
+    model_config = ConfigDict(extra="allow", arbitrary_types_allowed=True)
+    job_name: str = ""
+    dependency: Union[str, SlrumDependency] = SlrumDependency()
+
+    @model_validator(mode="before")
+    @classmethod
+    def default_and_replace_underscore(cls, v):
+        if isinstance(v, dict):
+            # TODO: read defaults from jhcfg
+            v = {k.replace("-", "_"): v for k, v in v.items()}
+            if "output" not in v:
+                v["output"] = f"{jhcfg.slurm.log_dir}/%j.out"
+        return v
+
+    @field_validator("dependency", mode="before")
+    @classmethod
+    def from_list(cls, v):
+        if isinstance(v, list):
+            return SlrumDependency(afterok=v)
+        return v
+
+    def preamble(self):
+        preamble = []
+        for k in self.model_fields.keys():
+            v = getattr(self, k)
+            if v is None:
+                continue
+            if k == "dependency":
+                v = v.slurm_str() if isinstance(v, SlrumDependency) else v
+                if v == "":
+                    continue
+            else:
+                v = str(v)
+            preamble.append(f"#SBATCH --{k.replace('_', '-'):<19} {v}")
+        return "\n".join(preamble)
+
+
 class Slurm(BaseModel):
     """
     This class provides a simple interface for submitting jobs to a cluster (Slurm).
@@ -45,19 +126,15 @@ class Slurm(BaseModel):
 
     run_cmd: str
     job_id: Optional[int] = None
-    config: dict[str, str] = Field(default_factory=dict, validate_default=True)
+    config: SlurmConfig = Field(
+        default_factory=lambda: SlurmConfig(), validate_default=True
+    )
     jh_config: JHSlurmConfig = Field(default_factory=lambda: copy.deepcopy(jhcfg.slurm))
 
-    @field_validator("config", mode="before")
-    @classmethod
-    def default_and_replace_underscore(cls, v):
-        v = {k.replace("_", "-"): v for k, v in v.items()}
-        if "output" not in v:
-            v["output"] = f"{jhcfg.slurm.log_dir}/%j.out"
-        return v
-
-    def set_slurm(self, **kwargs: str) -> Slurm:
-        self.config.update({k.replace("_", "-"): v for k, v in kwargs.items()})
+    def set_slurm(self, **kwargs) -> Slurm:
+        for k, v in kwargs.items():
+            k = k.replace("_", "-")
+            setattr(self.config, k, v)
         return self
 
     @computed_field
@@ -66,11 +143,8 @@ class Slurm(BaseModel):
         """
         Generate the script to be submitted to the cluster.
         """
-        cmds = [f"#!{jhcfg.slurm.shell}"]
-        for k, v in self.config.items():
-            if v is None:
-                continue
-            cmds.append(f"#SBATCH --{k:<19} {v}")
+        cmds = [f"#!{self.jh_config.shell}"]
+        cmds.append(self.config.preamble())
         cmds.append(self.run_cmd)
         return "\n".join(cmds)
 
@@ -79,7 +153,7 @@ class Slurm(BaseModel):
         Submit the job to the cluster.
         If `dry` is True, it only prints the script. Otherwise (--nodry), it submits the job.
         """
-        sbatch_cmd = jhcfg.slurm.sbatch_cmd
+        sbatch_cmd = self.jh_config.sbatch_cmd
         slurm_script = "\n".join(
             [f'{sbatch_cmd} --parsable << "EOF"', self.script, "EOF"]
         )

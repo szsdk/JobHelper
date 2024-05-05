@@ -10,6 +10,5 @@ from .project_helper import (
     ProjectArgBase,
     ProjectConfig,
     ShellCommand,
-    SlurmConfig,
 )
 from .slurm_helper import Slurm

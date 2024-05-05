@@ -2,36 +2,22 @@ from __future__ import annotations
 
 import base64
 import copy
-import json
 import pydoc
 import subprocess
 import urllib.request
 import zlib
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from typing import Any, ClassVar, Optional, Union
+from typing import Any, Optional, Union
 
 from loguru import logger
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .arg import ArgBase
 from .config import ProjectConfig as JHProjectConfig
 from .config import jhcfg
 from .repo_watcher import RepoState, RepoWatcher
-from .slurm_helper import JobInfo, Slurm, parse_sacct_output
-
-
-def _get_slurm_config(
-    jobname: str, slurm_config: SlurmConfig, jobs: dict[str, Slurm], dry: bool
-) -> dict[str, str]:
-    ans = copy.deepcopy(slurm_config.model_dump())
-    ans["dependency"] = slurm_config.dependency.slurm_str(jobs, dry)
-    if ans["dependency"] == "":
-        del ans["dependency"]
-    for k, v in ans.items():
-        ans[k] = str(v)
-    ans["job-name"] = jobname
-    return ans
+from .slurm_helper import SlrumDependency, Slurm, SlurmConfig, parse_sacct_output
 
 
 class ShellCommand(ArgBase):
@@ -44,48 +30,6 @@ class ShellCommand(ArgBase):
 class ProjectArgBase(ArgBase):
     def slurm(self, project: Project) -> Slurm:
         raise NotImplementedError
-
-
-class SlrumDependency(BaseModel):
-    after: list[str] = Field(default_factory=list)
-    afterany: list[str] = Field(default_factory=list)
-    afternotok: list[str] = Field(default_factory=list)
-    afterok: list[str] = Field(default_factory=list)
-    singleton: bool = False  # Placeholder; TODO: Implement this
-
-    def __iter__(self):
-        for k in ["after", "afterany", "afternotok", "afterok"]:
-            yield from getattr(self, k)
-
-    def slurm_str(self, jobs, dry: bool) -> str:
-        ans = []
-        for k in ["after", "afterany", "afternotok", "afterok"]:
-            js = getattr(self, k)
-            ansk = []
-            for j in js:
-                if j in jobs:
-                    if dry:
-                        ansk.append(j)
-                    elif jobs[j].job_id is not None:
-                        ansk.append(str(jobs[j].job_id))
-                else:
-                    logger.warning(f"job {j} not found")
-            if len(ansk) > 0:
-                ans.append(f"{k}:{':'.join(ansk)}")
-        return ",".join(ans)
-
-
-class SlurmConfig(BaseModel):
-    model_config = ConfigDict(extra="allow", arbitrary_types_allowed=True)
-    dependency: SlrumDependency = SlrumDependency()
-
-    @field_validator("dependency", mode="before")
-    @classmethod
-    def from_list(cls, v):
-        if isinstance(v, list):
-            print(SlrumDependency(afterok=v))
-            return SlrumDependency(afterok=v)
-        return v
 
 
 class JobConfig(ArgBase):
@@ -307,7 +251,6 @@ class Project(ProjectConfig):
     commands: dict[str, type[ArgBase]] = Field(
         default_factory=_get_commands, validate_default=True, exclude=True
     )
-    # config: ProjectConfig
     jh_config: JHProjectConfig = Field(
         default_factory=lambda: copy.deepcopy(jhcfg.project), exclude=True
     )
@@ -330,14 +273,14 @@ class Project(ProjectConfig):
             job_arg = self.commands[job.command].model_validate(job.config)
             if job.slurm_config is not None:
                 jobs[jobname] = (
-                    (
-                        job_arg.slurm(self)
-                        if isinstance(job_arg, ProjectArgBase)
-                        else job_arg.slurm()
-                    ).set_slurm(
-                        **_get_slurm_config(jobname, job.slurm_config, jobs, dry)
-                    )
-                ).sbatch(dry=dry)
+                    job_arg.slurm(self)
+                    if isinstance(job_arg, ProjectArgBase)
+                    else job_arg.slurm()
+                )
+                c = jobs[jobname].config
+                c.dependency = c.dependency.replace_with_job_id(jobs, dry)
+                c.job_name = jobname
+                jobs[jobname].sbatch(dry=dry)
         return jobs
 
     def run(
