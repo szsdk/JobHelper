@@ -13,14 +13,14 @@ from typing import Any, Optional, Union
 from loguru import logger
 from pydantic import Field, field_validator
 
-from .arg import ArgBase
+from .arg import ArgBase, JobArgBase
 from .config import ProjectConfig as JHProjectConfig
 from .config import jhcfg
 from .repo_watcher import RepoState, RepoWatcher
 from .slurm_helper import Slurm, SlurmConfig, parse_sacct_output
 
 
-class ShellCommand(ArgBase):
+class ShellCommand(JobArgBase):
     sh: str
 
     def script(self) -> str:
@@ -246,7 +246,7 @@ class ProjectRunningResult(ArgBase):
 
 
 class Project(ProjectConfig):
-    commands: dict[str, type[ArgBase]] = Field(
+    commands: dict[str, Union[type[JobArgBase], type[ProjectArgBase]]] = Field(
         default_factory=_get_commands, validate_default=True, exclude=True
     )
     jh_config: JHProjectConfig = Field(

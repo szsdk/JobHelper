@@ -24,7 +24,7 @@ def _multi_index(d, indices: str):
     return ans
 
 
-def doc_from_FieldInfo(field_info: pydantic.fields.FieldInfo) -> str:
+def doc_from_FieldInfo(field_info) -> str:
     """convert FieldInfo to docstring"""
     doc_parts = []
     if field_info.description is not None:
@@ -95,6 +95,7 @@ class ArgBase(BaseModel):
             setattr(self, k, v)
         return self
 
+
+class JobArgBase(ArgBase):
     def script(self) -> str:
-        # TODO: this method should be removed from this class
         raise NotImplementedError

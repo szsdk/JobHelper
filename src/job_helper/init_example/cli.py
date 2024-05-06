@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from job_helper import ArgBase, Slurm
+from job_helper import JobArgBase, Slurm
 
 
-class AddOne(ArgBase):
+class AddOne(JobArgBase):
     "add 1 to num"
 
     num: int
@@ -15,3 +15,6 @@ class AddOne(ArgBase):
         return f"""
 cd {Path(__file__).parent}
 jh add-one from-base64 {self.to_base64()} - run"""
+
+    def slurm(self):
+        return Slurm(run_cmd=self.script())

@@ -2,10 +2,10 @@ import logging
 from pathlib import Path
 
 import numpy as np
-from job_helper import ArgBase
+from job_helper import JobArgBase
 
 
-class GenerateDataArg(ArgBase):
+class GenerateDataArg(JobArgBase):
     count: int
     output_fn: str
 
@@ -23,7 +23,7 @@ python {__file__} {type(self).__name__} from_base64 '{self.to_base64()}' - run
         """
 
 
-class SumDataArg(ArgBase):
+class SumDataArg(JobArgBase):
     input_fn: str
     output_fn: str
 
