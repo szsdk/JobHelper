@@ -5,7 +5,7 @@ import pydoc
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Annotated, Any, Optional, Union
 
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -15,12 +15,12 @@ from .arg import ArgBase, JobArgBase
 from .config import ProjectConfig as JHProjectConfig
 from .config import jhcfg
 from .repo_watcher import RepoState, RepoWatcher
-from .scheduler import Scheduler
-from .slurm_helper import JobPreamble, SlurmScheduler, parse_sacct_output
+from .scheduler import JobPreamble, Scheduler
+from .slurm_helper import SlurmScheduler, parse_sacct_output
 
 
 class ShellCommand(JobArgBase):
-    sh: str
+    sh: Annotated[str, Field(description="The shell command to be run")] = ""
 
     def script(self) -> str:
         return self.sh
@@ -43,8 +43,8 @@ def get_scheduler() -> Scheduler:
         return SlurmScheduler.model_validate(jhcfg.scheduler.config)
     try:
         s = pydoc.locate(jhcfg.scheduler.name)
-        print(s, jhcfg.scheduler.name)
-        return s.model_validate(jhcfg.scheduler.config)
+        if isinstance(s, Scheduler):
+            return s.model_validate(jhcfg.scheduler.config)
     except ImportError:
         pass
     raise ValueError(f"Unsupported scheduler: {jhcfg.scheduler.name}")
@@ -181,16 +181,17 @@ class ProjectRunningResult(ArgBase):
         This function gets the current state of the jobs and generates a Gantt chart from it.
         """
         scheduler = get_scheduler()
+        if getattr(scheduler, "sacct_cmd", None) is None:
+            raise ValueError(
+                "This function is only supported for Slurm (`sacct_cmd` should be given)."
+            )
         id_to_name = {v: k for k, v in self.jobs.items()}
         result = subprocess.run(
-            " ".join(
-                [
-                    scheduler.sacct_cmd,  # TODO: only for slurm
-                    "--jobs",
-                    ",".join(map(str, self.jobs.values())),
-                ]
-            ),
-            shell=True,
+            [
+                scheduler.sacct_cmd,
+                "--jobs",
+                ",".join(map(str, self.jobs.values())),
+            ],
             stdout=subprocess.PIPE,
         )
         job_states = {

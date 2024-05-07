@@ -18,7 +18,7 @@ from pydantic import (
 )
 
 from .config import DirExists, jhcfg
-from .scheduler import Scheduler
+from .scheduler import JobPreamble, Scheduler
 
 _env0 = (  # noqa: E402
     os.environ.copy()
@@ -80,12 +80,11 @@ class SlrumDependency(BaseModel):
         return ans
 
 
-class JobPreamble(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True, extra="allow")
-    dependency: Any = Field(default_factory=list)
-
-
 class SlurmConfig(JobPreamble):
+    """
+    It is a class for configuring the Slurm job scheduler. It should be noted that all keys are in long format (e.g., `job_name` instead of `-J`).
+    """
+
     model_config = ConfigDict(extra="allow", arbitrary_types_allowed=True)
     job_name: str = ""
     dependency: SlrumDependency = SlrumDependency()
@@ -97,7 +96,6 @@ class SlurmConfig(JobPreamble):
     @classmethod
     def default_and_replace_underscore(cls, v):
         if isinstance(v, dict):
-            # TODO: read defaults from jhcfg
             v = {k.replace("-", "_"): v for k, v in v.items()}
         return v
 
@@ -150,10 +148,9 @@ class Slurm(BaseModel):
 
 
 class SlurmScheduler(Scheduler):
-    # jh_config: JHSlurmConfig = Field(default_factory=lambda: copy.deepcopy(jhcfg.slurm))
     shell: str = "/bin/sh"
     sbatch_cmd: Annotated[str, Field(description="sbatch command")] = "sbatch"
-    sacct_cmd: str = "sacct"
+    sacct_cmd: Annotated[str, Field(description="sacct command")] = "sacct"
     log_dir: Annotated[DirExists, Field(validate_default=True)] = Path()
 
     def submit(
