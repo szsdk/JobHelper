@@ -174,11 +174,12 @@ class ProjectRunningResult(ArgBase):
         """
         This function gets the current state of the jobs and generates a Gantt chart from it.
         """
+        scheduler = get_scheduler()
         id_to_name = {v: k for k, v in self.jobs.items()}
         result = subprocess.run(
             " ".join(
                 [
-                    jhcfg.slurm.sacct_cmd,
+                    scheduler.sacct_cmd,  # TODO: only for slurm
                     "--jobs",
                     ",".join(map(str, self.jobs.values())),
                 ]

@@ -16,7 +16,7 @@ from loguru import logger
 from . import init_example
 from ._utils import dumps_toml
 from .config import JobHelperConfig, jhcfg
-from .project_helper import Project, ProjectRunningResult
+from .project_helper import Project, ProjectRunningResult, get_scheduler
 
 
 def compress_log(dt: float = 24) -> None:
@@ -25,7 +25,7 @@ def compress_log(dt: float = 24) -> None:
     time, `dt` hours (default=24 hours), in the directory, `slurm.log_dir` (default='log/slurm') to a tar.gz file.
     The file name is the current date+time.
     """
-    log_dir = jhcfg.slurm.log_dir
+    log_dir = get_scheduler().log_dir
     # Get the current date+time
     now = datetime.datetime.now()
     now_str = now.strftime("%Y%m%d_%H%M%S")
@@ -83,7 +83,7 @@ class Tools:
     def compress_log(self, dt: float = 24) -> None:
         """
         This function compresses the '.out' and '.sh' files which are not modified more than a certain
-        time, `dt` hours (default=24 hours), in the directory, `slurm.log_dir` (default='log/slurm') to a tar.gz file.
+        time, `dt` hours (default=24 hours), in the directory, `scheduler.config.log_dir` (default='log/slurm') to a tar.gz file.
         The file name is the current date+time.
         ```
         compress_log 24
@@ -102,7 +102,7 @@ def init():
 
     cfg = JobHelperConfig(
         project={"log_dir": "log/project"},
-        slurm={"log_dir": "log/slurm"},
+        scheduler={"name": "slurm", "config": {"log_dir": "log/slurm"}},
         cli={"log_file": "log/cmd.log"},
         commands={"add_one": "cli.AddOne", "tools": "job_helper.cli.tools"},
     )

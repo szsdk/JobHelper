@@ -73,13 +73,6 @@ class RepoWatcherConfig(BaseModel):
         return self
 
 
-class SlurmConfig(BaseModel):
-    shell: str = "/bin/sh"
-    sbatch_cmd: Annotated[str, Field(description="sbatch command")] = "sbatch"
-    sacct_cmd: str = "sacct"
-    log_dir: Annotated[DirExists, Field(validate_default=True)] = Path()
-
-
 class ProjectConfig(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
     log_dir: DirExists = Field(default=Path(""), validate_default=True)
@@ -87,7 +80,13 @@ class ProjectConfig(BaseModel):
 
 class SchedulerConfig(BaseModel):
     name: str = "slurm"
-    config: dict[str, Any] = Field(default_factory=dict)
+    config: dict[str, Any] = Field(
+        default_factory=lambda: dict(
+            dict(
+                shell="/bin/sh", sbatch_cmd="sbatch", sacct_cmd="sacct", log_dir=Path()
+            )
+        )
+    )
 
 
 class JobHelperConfig(BaseModel):
@@ -99,9 +98,6 @@ class JobHelperConfig(BaseModel):
     _reserved_commands: ClassVar[list[str]] = ["init", "project"]
     commands: dict[str, str] = Field(default_factory=dict)
     scheduler: SchedulerConfig = Field(default_factory=lambda: SchedulerConfig())
-    slurm: SlurmConfig = Field(
-        default_factory=SlurmConfig, description="Slurm configuration"
-    )
     repo_watcher: RepoWatcherConfig = Field(default_factory=RepoWatcherConfig)
     project: ProjectConfig = Field(default_factory=ProjectConfig)
     cli: CLIConfig = Field(default_factory=CLIConfig)

@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 import toml
-from job_helper import jhcfg
+from job_helper import jhcfg, scheduler
 from job_helper.cli import JobHelperConfig, console_main
 from pydantic import BaseModel
 
@@ -23,7 +23,7 @@ class MockJhcfg:
         for k, v in self._config.items():
             cls = type(getattr(jhcfg, k))
             if issubclass(cls, BaseModel):
-                setattr(jhcfg, k, cls(**v))
+                setattr(jhcfg, k, cls.model_validate(v))
             else:
                 setattr(jhcfg, k, v)
 
@@ -41,7 +41,7 @@ def testing_jhcfg(tmp_path):
     with MockJhcfg(
         project=dict(log_dir=tmp_path / "log" / "project"),
         repo_watcher=dict(watched_repos=["."]),
-        slurm=dict(log_dir=tmp_path / "log" / "job"),
+        scheduler={"config": dict(log_dir=tmp_path / "log" / "job")},
         commands=dict(
             generate_data="tests.example_cmds.GenerateDataArg",
             sum_data="tests.example_cmds.SumDataArg",

@@ -5,20 +5,19 @@ import os
 import subprocess
 import sys
 from datetime import datetime
-from typing import Any, Iterable, Literal, Optional, Union
+from pathlib import Path
+from typing import Annotated, Any, Iterable, Literal, Optional, Union
 
 from loguru import logger
 from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
-    computed_field,
     field_validator,
     model_validator,
 )
 
-from .config import JobHelperConfig, jhcfg
-from .config import SlurmConfig as JHSlurmConfig
+from .config import DirExists, jhcfg
 from .scheduler import Scheduler
 
 _env0 = (  # noqa: E402
@@ -90,7 +89,9 @@ class SlurmConfig(JobPreamble):
     model_config = ConfigDict(extra="allow", arbitrary_types_allowed=True)
     job_name: str = ""
     dependency: SlrumDependency = SlrumDependency()
-    output: str = Field(default_factory=lambda: f"{jhcfg.slurm.log_dir}/%j.out")
+    output: str = Field(
+        default_factory=lambda: f"{SlurmScheduler.model_validate(jhcfg.scheduler.config).log_dir}/%j.out"
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -132,7 +133,6 @@ class Slurm(BaseModel):
     config: SlurmConfig = Field(
         default_factory=lambda: SlurmConfig(), validate_default=True
     )
-    jh_config: JHSlurmConfig = Field(default_factory=lambda: copy.deepcopy(jhcfg.slurm))
 
     def set_slurm(self, **kwargs) -> Slurm:
         for k, v in kwargs.items():
@@ -140,27 +140,55 @@ class Slurm(BaseModel):
             setattr(self.config, k, v)
         return self
 
-    @computed_field
-    @property
-    def script(self) -> str:
+    def sbatch(self, dry: bool = True, save_script: bool = True):
+        SlurmScheduler.model_validate(jhcfg.scheduler.config).sbatch(
+            self, dry=dry, save_script=save_script
+        )
+
+    def __str__(self) -> str:
+        return f"{type(self).__name__}(job id: {self.job_id})"
+
+
+class SlurmScheduler(Scheduler):
+    # jh_config: JHSlurmConfig = Field(default_factory=lambda: copy.deepcopy(jhcfg.slurm))
+    shell: str = "/bin/sh"
+    sbatch_cmd: Annotated[str, Field(description="sbatch command")] = "sbatch"
+    sacct_cmd: str = "sacct"
+    log_dir: Annotated[DirExists, Field(validate_default=True)] = Path()
+
+    def submit(
+        self, config, job_script, jobs: dict[str, Slurm], jobname: str, dry: bool
+    ):
+        c = SlurmConfig.model_validate(config.model_dump())
+        c.dependency = c.dependency.replace_with_job_id(jobs, dry)
+        c.job_name = jobname
+        job = Slurm(run_cmd=job_script, config=c)
+        # job.sbatch(dry=dry)
+        self.sbatch(job, dry=dry)
+        return job
+
+    def dependency(self, config) -> Iterable[int]:
+        c = SlurmConfig.model_validate(config.model_dump())
+        return c.dependency
+
+    def script(self, job) -> str:
         """
         Generate the script to be submitted to the cluster.
         """
-        cmds = [f"#!{self.jh_config.shell}"]
-        cmds.append(self.config.preamble())
-        cmds.append(self.run_cmd)
+        cmds = [f"#!{self.shell}"]
+        cmds.append(job.config.preamble())
+        cmds.append(job.run_cmd)
         return "\n".join(cmds)
 
-    def sbatch(self, dry: bool = True, save_script: bool = True) -> Slurm:
+    def sbatch(self, job: Slurm, dry: bool = True, save_script: bool = True):
         """
         Submit the job to the cluster.
         If `dry` is True, it only prints the script. Otherwise (--nodry), it submits the job.
         """
-        sbatch_cmd = self.jh_config.sbatch_cmd
-        slurm_script = "\n".join(
-            [f'{sbatch_cmd} --parsable << "EOF"', self.script, "EOF"]
-        )
-        print(self.script)
+        script = self.script(job)
+        sbatch_cmd = self.sbatch_cmd
+        slurm_script = "\n".join([f'{sbatch_cmd} --parsable << "EOF"', script, "EOF"])
+        print(script)
         if dry:
             logger.info("It is a dry run.")
             return self
@@ -172,28 +200,9 @@ class Slurm(BaseModel):
         if result.returncode != 0:
             logger.error(result.stderr)
             sys.exit(1)
-        self.job_id = int(stdout)
+        job.job_id = int(stdout)
         logger.info("Submitted batch job {}", stdout)
         if save_script:
-            with (self.jh_config.log_dir / f"{self.job_id}_slurm.sh").open("w") as fp:
-                print(self.script, file=fp)
+            with (self.log_dir / f"{job.job_id}_slurm.sh").open("w") as fp:
+                print(script, file=fp)
         return self
-
-    def __str__(self) -> str:
-        return f"{type(self).__name__}(job id: {self.job_id})"
-
-
-class SlurmScheduler(Scheduler):
-    def submit(
-        self, config, job_script, jobs: dict[str, Slurm], jobname: str, dry: bool
-    ):
-        c = SlurmConfig.model_validate(config.model_dump())
-        c.dependency = c.dependency.replace_with_job_id(jobs, dry)
-        c.job_name = jobname
-        job = Slurm(run_cmd=job_script, config=c)
-        job.sbatch(dry=dry)
-        return job
-
-    def dependency(self, config) -> Iterable[int]:
-        c = SlurmConfig.model_validate(config.model_dump())
-        return c.dependency

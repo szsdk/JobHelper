@@ -2,7 +2,6 @@ import subprocess
 from datetime import datetime
 
 import pytest
-from job_helper import jhcfg
 from job_helper.slurm_helper import parse_sacct_output
 
 import tests.fake_slurm as fs
@@ -30,9 +29,8 @@ from tests.utils import slurm_server
     indirect=True,
 )
 def test_sacct(slurm_server):
-    print(jhcfg.slurm.sacct_cmd)
     result = subprocess.run(
-        " ".join([jhcfg.slurm.sacct_cmd, "--jobs", "1,2"]),
+        " ".join(["sacct", "--jobs", "1,2"]),
         shell=True,
         stdout=subprocess.PIPE,
     )

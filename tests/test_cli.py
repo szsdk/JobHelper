@@ -1,6 +1,7 @@
 import subprocess
 
 from job_helper import cli, jhcfg
+from job_helper.project_helper import get_scheduler
 
 from tests.utils import run_jh, slurm_server, testing_jhcfg
 
@@ -27,7 +28,7 @@ def test_init(tmp_path, monkeypatch, capsys, slurm_server):
 
 
 def test_tools(tmp_path, testing_jhcfg):
-    fn = jhcfg.slurm.log_dir / "test.out"
+    fn = get_scheduler().log_dir / "test.out"
     cli.tools.log_sh(f"echo 123 >> {fn}")
     assert fn.read_text() == "123\n"
     cli.tools.log_message("hello")
