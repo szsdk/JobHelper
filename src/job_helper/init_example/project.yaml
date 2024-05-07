@@ -3,7 +3,7 @@ jobs:
     command: add_one
     config:
       num: 3
-    slurm_config:
+    job_preamble:
       dependency:
         - START
   job2_0:
@@ -16,7 +16,7 @@ jobs:
       jobs:
         - sh: sleep 0.5
         - job2_0
-    slurm_config:
+    job_preamble:
       dependency:
         afterok:
           - job1

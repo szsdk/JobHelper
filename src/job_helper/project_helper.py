@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Optional, Union
 
 from loguru import logger
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ._mermaid_backend import flowchart, render_chart
 from .arg import ArgBase, JobArgBase
@@ -32,9 +32,10 @@ class ProjectArgBase(ArgBase):
 
 
 class JobConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     command: str
     config: dict[str, Any]
-    slurm_config: JobPreamble = JobPreamble()
+    job_preamble: JobPreamble = JobPreamble()
 
 
 class ProjectConfig(ArgBase):
@@ -52,9 +53,9 @@ class ProjectConfig(ArgBase):
         while True:
             changed = False
             for jobname, job in jobs.items():
-                if job.slurm_config is None:
+                if job.job_preamble is None:
                     continue
-                for d in scheduler.dependency(job.slurm_config):
+                for d in scheduler.dependency(job.job_preamble):
                     if d in jl:
                         jl[jobname] = jobs.pop(jobname)
                         changed = True
@@ -80,7 +81,7 @@ class ProjectConfig(ArgBase):
             (job_a, job_b): link_type
             for job_b, job in self.jobs.items()
             for link_type in ["afterok", "after", "afternotok", "afterany"]
-            for job_a in getattr(scheduler.dependency(job.slurm_config), link_type)
+            for job_a in getattr(scheduler.dependency(job.job_preamble), link_type)
         }
         render_chart(flowchart(nodes, links), output_fn)
 
@@ -206,13 +207,13 @@ class Project(ProjectConfig):
     def _run_jobs(self, scheduler, jobs, jobs_torun: dict[str, JobConfig], dry: bool):
         while len(jobs_torun) > 0:
             jobname, job = jobs_torun.popitem()
-            for j in job.slurm_config.dependency:
+            for j in job.job_preamble.dependency:
                 if j in jobs_torun:
                     self._run_jobs(scheduler, jobs, jobs_torun, dry)
             job_arg = self.commands[job.command].model_validate(job.config)
-            if job.slurm_config is not None:
+            if job.job_preamble is not None:
                 jobs[jobname] = scheduler.submit(
-                    job.slurm_config,
+                    job.job_preamble,
                     job_arg.script(self)
                     if isinstance(job_arg, ProjectArgBase)
                     else job_arg.script(),

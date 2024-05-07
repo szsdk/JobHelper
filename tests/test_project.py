@@ -30,7 +30,7 @@ jobs:
       jobs: 
         - sh: sleep 1
         - generate_data
-    slurm_config: 
+    job_preamble:
       dependency:
         after:
           - START
@@ -38,7 +38,7 @@ jobs:
     command: shell
     config:
       sh: sleep 0.4
-    slurm_config: 
+    job_preamble:
       dependency:
         afternotok:
           - START
@@ -47,7 +47,7 @@ jobs:
     config:
       input_fn: {data_fn}
       output_fn: {dir / 'sum.txt'}
-    slurm_config:
+    job_preamble:
       dependency:
         - job_1
         - job_sleep
