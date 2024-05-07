@@ -15,8 +15,8 @@ from .arg import ArgBase, JobArgBase
 from .config import ProjectConfig as JHProjectConfig
 from .config import jhcfg
 from .repo_watcher import RepoState, RepoWatcher
-from .scheduler import get_scheduler
-from .slurm_helper import JobPreamble, parse_sacct_output
+from .scheduler import Scheduler
+from .slurm_helper import JobPreamble, SlurmScheduler, parse_sacct_output
 
 
 class ShellCommand(JobArgBase):
@@ -36,6 +36,12 @@ class JobConfig(BaseModel):
     command: str
     config: dict[str, Any]
     job_preamble: JobPreamble = JobPreamble()
+
+
+def get_scheduler() -> Scheduler:
+    if jhcfg.scheduler.name == "slurm":
+        return SlurmScheduler.model_validate(jhcfg.scheduler.config)
+    raise ValueError(f"Unsupported scheduler: {jhcfg.scheduler.name}")
 
 
 class ProjectConfig(ArgBase):

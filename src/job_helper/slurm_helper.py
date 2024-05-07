@@ -19,6 +19,7 @@ from pydantic import (
 
 from .config import JobHelperConfig, jhcfg
 from .config import SlurmConfig as JHSlurmConfig
+from .scheduler import Scheduler
 
 _env0 = (  # noqa: E402
     os.environ.copy()
@@ -180,3 +181,19 @@ class Slurm(BaseModel):
 
     def __str__(self) -> str:
         return f"{type(self).__name__}(job id: {self.job_id})"
+
+
+class SlurmScheduler(Scheduler):
+    def submit(
+        self, config, job_script, jobs: dict[str, Slurm], jobname: str, dry: bool
+    ):
+        c = SlurmConfig.model_validate(config.model_dump())
+        c.dependency = c.dependency.replace_with_job_id(jobs, dry)
+        c.job_name = jobname
+        job = Slurm(run_cmd=job_script, config=c)
+        job.sbatch(dry=dry)
+        return job
+
+    def dependency(self, config) -> Iterable[int]:
+        c = SlurmConfig.model_validate(config.model_dump())
+        return c.dependency
