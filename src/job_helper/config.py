@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from functools import cached_property
 from pathlib import Path
-from typing import Annotated, ClassVar, Union
+from typing import Annotated, Any, ClassVar, Union
 
 import toml
 from loguru import logger as logger
@@ -85,6 +85,11 @@ class ProjectConfig(BaseModel):
     log_dir: DirExists = Field(default=Path(""), validate_default=True)
 
 
+class SchedulerConfig(BaseModel):
+    name: str = "slurm"
+    config: dict[str, Any] = Field(default_factory=dict)
+
+
 class JobHelperConfig(BaseModel):
     """
     This is a singleton class for storing global variables.
@@ -93,6 +98,7 @@ class JobHelperConfig(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
     _reserved_commands: ClassVar[list[str]] = ["init", "project"]
     commands: dict[str, str] = Field(default_factory=dict)
+    scheduler: SchedulerConfig = Field(default_factory=lambda: SchedulerConfig())
     slurm: SlurmConfig = Field(
         default_factory=SlurmConfig, description="Slurm configuration"
     )
