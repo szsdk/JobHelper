@@ -43,8 +43,7 @@ def get_scheduler() -> Scheduler:
         return SlurmScheduler.model_validate(jhcfg.scheduler.config)
     try:
         s = pydoc.locate(jhcfg.scheduler.name)
-        if isinstance(s, Scheduler):
-            return s.model_validate(jhcfg.scheduler.config)
+        return s.model_validate(jhcfg.scheduler.config)
     except ImportError:
         pass
     raise ValueError(f"Unsupported scheduler: {jhcfg.scheduler.name}")

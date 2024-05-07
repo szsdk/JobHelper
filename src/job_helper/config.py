@@ -79,25 +79,35 @@ class ProjectConfig(BaseModel):
 
 
 class SchedulerConfig(BaseModel):
-    name: str = "slurm"
+    name: Annotated[
+        str,
+        Field(
+            description="The type of scheduler. Or the python import path to a custom scheduler class"
+        ),
+    ] = "slurm"
     config: dict[str, Any] = Field(
         default_factory=lambda: dict(
             dict(
                 shell="/bin/sh", sbatch_cmd="sbatch", sacct_cmd="sacct", log_dir=Path()
             )
-        )
+        ),
+        # description="The configuration for the scheduler. It varies for different schedulers.",
     )
 
 
 class JobHelperConfig(BaseModel):
     """
     This is a singleton class for storing global variables.
+    You can add your own command by adding item here.
+    The key will be the command name. The value should be the class importing path, such as `cli.AddOne`.
     """
 
     model_config = ConfigDict(validate_assignment=True)
     _reserved_commands: ClassVar[list[str]] = ["init", "project"]
     commands: dict[str, str] = Field(default_factory=dict)
-    scheduler: SchedulerConfig = Field(default_factory=lambda: SchedulerConfig())
+    scheduler: SchedulerConfig = Field(
+        default_factory=lambda: SchedulerConfig(), description="scheduler config"
+    )
     repo_watcher: RepoWatcherConfig = Field(default_factory=RepoWatcherConfig)
     project: ProjectConfig = Field(default_factory=ProjectConfig)
     cli: CLIConfig = Field(default_factory=CLIConfig)

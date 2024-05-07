@@ -129,6 +129,9 @@ def init():
 
 
 def console_main():
+    """
+    This is the entry point of the job_helper commands.
+    """
     import fire
 
     logger.remove()
@@ -160,7 +163,6 @@ def console_main():
     fire.Fire(cmds)
     log_cmd()
     sys.path.pop(-1)
-    # logger.remove(handler_id)
     logger.remove()
     logger.disable("job_helper")
 
