@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import copy
-import datetime
 import os
 import subprocess
 import sys
 from datetime import datetime
-from typing import Literal, Optional, Union
+from typing import Any, Iterable, Literal, Optional, Union
 
 from loguru import logger
 from pydantic import (
@@ -81,7 +80,12 @@ class SlrumDependency(BaseModel):
         return ans
 
 
-class SlurmConfig(BaseModel):
+class JobPreamble(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="allow")
+    dependency: Any = Field(default_factory=list)
+
+
+class SlurmConfig(JobPreamble):
     model_config = ConfigDict(extra="allow", arbitrary_types_allowed=True)
     job_name: str = ""
     dependency: SlrumDependency = SlrumDependency()

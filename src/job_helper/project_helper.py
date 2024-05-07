@@ -8,14 +8,15 @@ from pathlib import Path
 from typing import Any, Optional, Union
 
 from loguru import logger
-from pydantic import Field, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from ._mermaid_backend import flowchart, render_chart
 from .arg import ArgBase, JobArgBase
 from .config import ProjectConfig as JHProjectConfig
 from .config import jhcfg
 from .repo_watcher import RepoState, RepoWatcher
-from .slurm_helper import Slurm, SlurmConfig, parse_sacct_output
+from .scheduler import get_scheduler
+from .slurm_helper import JobPreamble, parse_sacct_output
 
 
 class ShellCommand(JobArgBase):
@@ -30,17 +31,17 @@ class ProjectArgBase(ArgBase):
         raise NotImplementedError
 
 
-class JobConfig(ArgBase):
+class JobConfig(BaseModel):
     command: str
     config: dict[str, Any]
-    slurm_config: SlurmConfig = SlurmConfig()
+    slurm_config: JobPreamble = JobPreamble()
 
 
 class ProjectConfig(ArgBase):
     jobs: dict[str, JobConfig]
 
-    def _get_job_torun(self, joblist, run_following) -> dict[str, JobConfig]:
-        jobs = copy.deepcopy(self.jobs)
+    def _get_job_torun(self, scheduler, joblist, run_following) -> dict[str, JobConfig]:
+        jobs = copy.copy(self.jobs)
         jl = {}
         for j in joblist.split(";"):
             jl[j] = jobs.pop(j, None)
@@ -53,7 +54,7 @@ class ProjectConfig(ArgBase):
             for jobname, job in jobs.items():
                 if job.slurm_config is None:
                     continue
-                for d in job.slurm_config.dependency:
+                for d in scheduler.dependency(job.slurm_config):
                     if d in jl:
                         jl[jobname] = jobs.pop(jobname)
                         changed = True
@@ -72,13 +73,14 @@ class ProjectConfig(ArgBase):
         run_following: bool = True,
         output_fn="-",
     ):
-        jobs_torun = self._get_job_torun(reruns, run_following)
+        scheduler = get_scheduler()
+        jobs_torun = self._get_job_torun(scheduler, reruns, run_following)
         nodes = {k: "norun" for k in self.jobs.keys() if k not in jobs_torun}
         links = {
             (job_a, job_b): link_type
             for job_b, job in self.jobs.items()
             for link_type in ["afterok", "after", "afternotok", "afterany"]
-            for job_a in getattr(job.slurm_config.dependency, link_type)
+            for job_a in getattr(scheduler.dependency(job.slurm_config), link_type)
         }
         render_chart(flowchart(nodes, links), output_fn)
 
@@ -201,32 +203,32 @@ class Project(ProjectConfig):
         v.update({"job_combo": JobComboArg, "shell": ShellCommand})
         return v
 
-    def _run_jobs(self, jobs, jobs_torun: dict[str, JobConfig], dry: bool):
+    def _run_jobs(self, scheduler, jobs, jobs_torun: dict[str, JobConfig], dry: bool):
         while len(jobs_torun) > 0:
             jobname, job = jobs_torun.popitem()
             for j in job.slurm_config.dependency:
                 if j in jobs_torun:
-                    self._run_jobs(jobs, jobs_torun, dry)
+                    self._run_jobs(scheduler, jobs, jobs_torun, dry)
             job_arg = self.commands[job.command].model_validate(job.config)
             if job.slurm_config is not None:
-                c = copy.deepcopy(job.slurm_config)
-                c.dependency = c.dependency.replace_with_job_id(jobs, dry)
-                c.job_name = jobname
-                jobs[jobname] = Slurm(
-                    run_cmd=job_arg.script(self)
+                jobs[jobname] = scheduler.submit(
+                    job.slurm_config,
+                    job_arg.script(self)
                     if isinstance(job_arg, ProjectArgBase)
                     else job_arg.script(),
-                    config=c,
+                    jobs,
+                    jobname,
+                    dry,
                 )
-                jobs[jobname].sbatch(dry=dry)
         return jobs
 
     def run(
         self, reruns: str = "START", run_following: bool = True, dry: bool = True
     ) -> Optional[Path]:
-        jobs_torun = self._get_job_torun(reruns, run_following)
+        scheduler = get_scheduler()
+        jobs_torun = self._get_job_torun(scheduler, reruns, run_following)
         repo_states = [] if dry else RepoWatcher.from_jhcfg().repo_states()
-        jobs = self._run_jobs({}, jobs_torun, dry)
+        jobs = self._run_jobs(scheduler, {}, jobs_torun, dry)
         if len(jobs) == 0:
             logger.warning("No jobs to run")
             return
