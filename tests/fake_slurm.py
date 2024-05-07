@@ -6,14 +6,15 @@ import sys
 import time
 import zlib
 from datetime import datetime
+from pathlib import Path
 from queue import Empty, Queue
 from threading import Event, Thread
 from typing import Literal, Optional, Union
 
 import zmq
-from job_helper.slurm_helper import JobInfo
+from job_helper.slurm_helper import JobInfo, SlurmScheduler
 from loguru import logger
-from pydantic import BaseModel, Field, TypeAdapter, validate_call
+from pydantic import BaseModel, Field, TypeAdapter, model_validator, validate_call
 
 PORT = int(os.environ["_TEST_PORT"]) if "_TEST_PORT" in os.environ else 5555
 
@@ -226,6 +227,18 @@ def sacct(
         jobs = [jobs]
     print(_format_jobs(response.jobs[i] for i in jobs))
     # return response
+
+
+class FakeSlurmScheduler(SlurmScheduler):
+    @model_validator(mode="after")
+    def _validate_cmds(self):
+        cmds = Path(__file__).resolve().parent / "fake_slurm_cmds"
+        self.sbatch_cmd = str(cmds / "sbatch")
+        self.sacct_cmd = str(cmds / "sacct")
+        logger.info(
+            "Using fake slurm, sbatch: {}, sacct: {}", self.sbatch_cmd, self.sacct_cmd
+        )
+        return self
 
 
 if __name__ == "__main__":

@@ -41,6 +41,12 @@ class JobConfig(BaseModel):
 def get_scheduler() -> Scheduler:
     if jhcfg.scheduler.name == "slurm":
         return SlurmScheduler.model_validate(jhcfg.scheduler.config)
+    try:
+        s = pydoc.locate(jhcfg.scheduler.name)
+        print(s, jhcfg.scheduler.name)
+        return s.model_validate(jhcfg.scheduler.config)
+    except ImportError:
+        pass
     raise ValueError(f"Unsupported scheduler: {jhcfg.scheduler.name}")
 
 

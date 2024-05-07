@@ -41,7 +41,10 @@ def testing_jhcfg(tmp_path):
     with MockJhcfg(
         project=dict(log_dir=tmp_path / "log" / "project"),
         repo_watcher=dict(watched_repos=["."]),
-        scheduler={"config": dict(log_dir=tmp_path / "log" / "job")},
+        scheduler={
+            "name": "tests.fake_slurm.FakeSlurmScheduler",
+            "config": dict(log_dir=tmp_path / "log" / "job"),
+        },
         commands=dict(
             generate_data="tests.example_cmds.GenerateDataArg",
             sum_data="tests.example_cmds.SumDataArg",
