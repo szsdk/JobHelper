@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-from functools import cached_property
 from pathlib import Path
 from typing import Annotated, Any, ClassVar, Union
 
@@ -35,7 +34,7 @@ class CLIConfig(BaseModel):
     )
     serialize_log: Annotated[
         bool,
-        Field(description="serialize log, set to False to get a human-readable log"),
+        Field(description="serialize log, set to false to get a human-readable log"),
     ] = True
 
     @field_validator("log_file", mode="before")
@@ -91,26 +90,25 @@ class SchedulerConfig(BaseModel):
                 shell="/bin/sh", sbatch_cmd="sbatch", sacct_cmd="sacct", log_dir=Path()
             )
         ),
-        # description="The configuration for the scheduler. It varies for different schedulers.",
+        description="The configuration for the scheduler. It varies for different schedulers.",
     )
 
 
 class JobHelperConfig(BaseModel):
-    """
-    This is a singleton class for storing global variables.
-    You can add your own command by adding item here.
-    The key will be the command name. The value should be the class importing path, such as `cli.AddOne`.
-    """
-
     model_config = ConfigDict(validate_assignment=True)
     _reserved_commands: ClassVar[list[str]] = ["init", "project"]
-    commands: dict[str, str] = Field(default_factory=dict)
+    commands: dict[str, str] = Field(
+        default_factory=dict,
+        description="You can add your own command by adding item here. The key will be the command name. The value should be the class importing path, such as `cli.AddOne`.",
+    )
     scheduler: SchedulerConfig = Field(
         default_factory=lambda: SchedulerConfig(), description="scheduler config"
     )
-    repo_watcher: RepoWatcherConfig = Field(default_factory=RepoWatcherConfig)
+    repo_watcher: RepoWatcherConfig = Field(
+        default_factory=RepoWatcherConfig, description="repo watcher config"
+    )
     project: ProjectConfig = Field(default_factory=ProjectConfig)
-    cli: CLIConfig = Field(default_factory=CLIConfig)
+    cli: CLIConfig = Field(default_factory=CLIConfig, description="cli config")
 
     @field_validator("commands", mode="after")
     def not_contains_reserved_commands(cls, v: dict[str, str]) -> dict[str, str]:
