@@ -152,6 +152,10 @@ class SlurmScheduler(Scheduler):
     sbatch_cmd: Annotated[str, Field(description="sbatch command")] = "sbatch"
     sacct_cmd: Annotated[str, Field(description="sacct command")] = "sacct"
     log_dir: Annotated[DirExists, Field(validate_default=True)] = Path()
+    save_script: bool = Field(
+        default=True, description="Save the script to the log_dir"
+    )
+    print_script: bool = Field(default=True, description="Print the script")
 
     def submit(
         self, config, job_script, jobs: dict[str, Slurm], jobname: str, dry: bool
@@ -160,7 +164,6 @@ class SlurmScheduler(Scheduler):
         c.dependency = c.dependency.replace_with_job_id(jobs, dry)
         c.job_name = jobname
         job = Slurm(run_cmd=job_script, config=c)
-        # job.sbatch(dry=dry)
         self.sbatch(job, dry=dry)
         return job
 
@@ -177,7 +180,7 @@ class SlurmScheduler(Scheduler):
         cmds.append(job.run_cmd)
         return "\n".join(cmds)
 
-    def sbatch(self, job: Slurm, dry: bool = True, save_script: bool = True):
+    def sbatch(self, job: Slurm, dry: bool = True):
         """
         Submit the job to the cluster.
         If `dry` is True, it only prints the script. Otherwise (--nodry), it submits the job.
@@ -185,7 +188,8 @@ class SlurmScheduler(Scheduler):
         script = self.script(job)
         sbatch_cmd = self.sbatch_cmd
         slurm_script = "\n".join([f'{sbatch_cmd} --parsable << "EOF"', script, "EOF"])
-        print(script)
+        if self.print_script:
+            print(script)
         if dry:
             logger.info("It is a dry run.")
             return self
@@ -198,8 +202,8 @@ class SlurmScheduler(Scheduler):
             logger.error(result.stderr)
             sys.exit(1)
         job.job_id = int(stdout)
-        logger.info("Submitted batch job {}", stdout)
-        if save_script:
+        logger.info("Submitted job {} to {}", job.config.job_name, job.job_id)
+        if self.save_script:
             with (self.log_dir / f"{job.job_id}_slurm.sh").open("w") as fp:
                 print(script, file=fp)
         return self
