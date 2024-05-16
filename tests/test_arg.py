@@ -2,8 +2,24 @@ from pathlib import Path
 
 import numpy as np
 import yaml
+from job_helper import ArgBase
+from pydantic import BaseModel
 
 from tests.example_cmds import GenerateDataArg, SumDataArg
+
+
+class A(BaseModel):
+    a: int
+    b: str
+
+
+class B(A, ArgBase):
+    c: float = 3
+
+
+def test_inherit():
+    b = B(a=1, b="b", c=3.4)
+    assert b.model_dump() == {"a": 1, "b": "b", "c": 3.4}
 
 
 def test_Arg(tmpdir):
