@@ -37,7 +37,7 @@ def add_description(arg, arg_dict):
         if isinstance(sub_arg, BaseModel):
             add_description(sub_arg, val)
         if (description := getattr(v, "description")) is not None:
-            if isinstance(sub_arg, BaseModel):
+            if isinstance(sub_arg, (dict, BaseModel)):
                 arg_dict[k] = CDict(val, description)
             else:
                 arg_dict[k] = CV(val, description)

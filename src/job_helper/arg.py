@@ -6,12 +6,9 @@ from pathlib import Path
 from string import Template
 from typing import Union
 
-import pydantic
 import toml
 import yaml
 from pydantic import BaseModel, validate_call
-
-# from .slurm_helper import Slurm
 
 
 def _multi_index(d, indices: str):
