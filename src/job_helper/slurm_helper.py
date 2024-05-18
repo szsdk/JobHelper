@@ -138,10 +138,8 @@ class Slurm(BaseModel):
             setattr(self.config, k, v)
         return self
 
-    def sbatch(self, dry: bool = True, save_script: bool = True):
-        SlurmScheduler.model_validate(jhcfg.scheduler.config).sbatch(
-            self, dry=dry, save_script=save_script
-        )
+    def sbatch(self, dry: bool = True):
+        SlurmScheduler.model_validate(jhcfg.scheduler.config).sbatch(self, dry=dry)
 
     def __str__(self) -> str:
         return f"{type(self).__name__}(job id: {self.job_id})"

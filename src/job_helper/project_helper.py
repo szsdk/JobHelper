@@ -158,10 +158,16 @@ def generate_mermaid_gantt_chart(jobs):
             start = info.Start
             end = datetime.now()
         else:
-            start = info.Start
-            end = info.End
+            start = datetime.now() if info.Start == "Unknown" else info.Start
+            end = datetime.now() if info.End == "Unknown" else info.End
 
-        mermaid_code += f"    {job_name} :{state_map[info.State]}, {start.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]}, {end.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]}\n"
+        if info.State in state_map:
+            state = state_map[info.State]
+        elif "CANCELLED" in info.State:
+            state = "crit"
+        else:
+            state = "crit"
+        mermaid_code += f"    {job_name} :{state}, {start.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]}, {end.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]} \n    %% {job_name}: {info.JobID} {info.State}\n"
 
     return mermaid_code
 
@@ -190,6 +196,9 @@ class ProjectRunningResult(ArgBase):
                 scheduler.sacct_cmd,
                 "--jobs",
                 ",".join(map(str, self.jobs.values())),
+                "-ojobid,jobname,start,end,state",
+                "-P",
+                "-X",
             ],
             stdout=subprocess.PIPE,
         )
