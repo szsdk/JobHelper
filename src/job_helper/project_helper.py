@@ -228,21 +228,29 @@ class Project(ProjectConfig):
 
     def _run_jobs(self, scheduler, jobs, jobs_torun: dict[str, JobConfig], dry: bool):
         while len(jobs_torun) > 0:
+            stack = []
             jobname, job = jobs_torun.popitem()
-            for j in job.job_preamble.dependency:
-                if j in jobs_torun:
-                    self._run_jobs(scheduler, jobs, jobs_torun, dry)
-            job_arg = self.commands[job.command].model_validate(job.config)
-            if job.job_preamble is not None:
-                jobs[jobname] = scheduler.submit(
-                    job.job_preamble,
-                    job_arg.script(self)
-                    if isinstance(job_arg, ProjectArgBase)
-                    else job_arg.script(),
-                    jobs,
-                    jobname,
-                    dry,
-                )
+            stack.append((jobname, job))
+            while len(stack) > 0:
+                for j in stack[-1][1].job_preamble.dependency:
+                    if j in jobs_torun:
+                        stack.append((j, jobs_torun.pop(j)))
+                        break
+                    if (j not in jobs) and (j != "START"):
+                        logger.warning("Job {} not found", j)
+                else:
+                    jobname, job = stack.pop()
+                    job_arg = self.commands[job.command].model_validate(job.config)
+                    assert job.job_preamble is not None
+                    jobs[jobname] = scheduler.submit(
+                        job.job_preamble,
+                        job_arg.script(self)
+                        if isinstance(job_arg, ProjectArgBase)
+                        else job_arg.script(),
+                        jobs,
+                        jobname,
+                        dry,
+                    )
         return jobs
 
     def run(

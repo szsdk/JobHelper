@@ -135,7 +135,7 @@ def console_main():
     import fire
 
     logger.remove()
-    logger.add(sys.stdout, level="WARNING")
+    logger.add(sys.stdout, level="INFO")
     logger.enable("job_helper")
     if sys.argv[1] == "init":
         jhcfg.cli.log_file = Path("log/cmd.log")
