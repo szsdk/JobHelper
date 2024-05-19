@@ -181,7 +181,7 @@ class ProjectRunningResult(ArgBase):
     def to_project(self) -> Project:
         return Project.model_validate(self.config.model_dump())
 
-    def job_states(self, output_fn: str = "-"):
+    def _job_states(self):
         """
         This function gets the current state of the jobs and generates a Gantt chart from it.
         """
@@ -202,11 +202,35 @@ class ProjectRunningResult(ArgBase):
             ],
             stdout=subprocess.PIPE,
         )
-        job_states = {
+        return {
             id_to_name[job.JobID]: job
             for job in parse_sacct_output(result.stdout.decode())
         }
-        render_chart(generate_mermaid_gantt_chart(job_states), output_fn)
+
+    def job_states(self, output_fn: str = "-"):
+        render_chart(generate_mermaid_gantt_chart(self._job_states()), output_fn)
+
+    def recover(self, yes=False, dry=True):
+        job_states = self._job_states()
+        # Check if the jobs are still running
+        for job_name, job in job_states.items():
+            if job.State in ["RUNNING"]:
+                logger.warning(f"Job {job_name} is still running.")
+        if not yes:
+            print(
+                "All jobs will be cancelled. And jobs not completed will be resubmitted. Continue? [y/N]"
+            )
+            yes = input().lower() == "y"
+        if not yes:
+            return
+        not_completed = {
+            job_name: job
+            for job_name, job in job_states.items()
+            if job.State != "COMPLETED"
+        }
+        if not dry:
+            subprocess.run(["scancel"] + [str(i.JobID) for i in not_completed.values()])
+        self.to_project().run(reruns=";".join(not_completed.keys()), dry=dry)
 
 
 class Project(ProjectConfig):
