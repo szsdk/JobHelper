@@ -76,7 +76,8 @@ class SlrumDependency(BaseModel):
                     elif jobs[j].job_id is not None:
                         ansk.append(str(jobs[j].job_id))
                 else:
-                    logger.warning(f"job {j} not found")
+                    if j != "START":
+                        logger.warning("job {} not found", j)
         return ans
 
 
