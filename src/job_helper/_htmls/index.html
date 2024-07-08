@@ -59,7 +59,7 @@ h1 {
     height: 40px; /* Increase select box height */
     font-size: 18px; /* Increase select box font size */
   }
-    </style>
+</style>
   </head>
   <body>
     <div id="app">
@@ -161,6 +161,26 @@ displayMode: compact
       }
     });
     app.mount('#app');
+
+
+    function copyTextToClipboard(text) {
+      var textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+
+      try {
+        var successful = document.execCommand('copy');
+        var msg = successful ? 'successful' : 'unsuccessful';
+        alert('Job id (' + text + ') was copied.');
+      } catch (err) {
+        alert('Oops, unable to copy', err);
+      }
+
+      document.body.removeChild(textArea);
+    }
+
     </script>
   </body>
 </html>
