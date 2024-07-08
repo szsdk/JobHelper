@@ -84,7 +84,7 @@ class ProjectConfig(ArgBase):
         reruns: str = "START",
         run_following: bool = True,
         output_fn="-",
-    ):
+    ) -> str:
         scheduler = get_scheduler()
         jobs_torun = self._get_job_torun(scheduler, reruns, run_following)
         nodes = {k: "norun" for k in self.jobs.keys() if k not in jobs_torun}
@@ -94,7 +94,7 @@ class ProjectConfig(ArgBase):
             for link_type in ["afterok", "after", "afternotok", "afterany"]
             for job_a in getattr(scheduler.dependency(job.job_preamble), link_type)
         }
-        render_chart(flowchart(nodes, links), output_fn)
+        return render_chart(flowchart(nodes, links), output_fn)
 
 
 class JobComboArg(ProjectArgBase):
@@ -208,7 +208,7 @@ class ProjectRunningResult(ArgBase):
         }
 
     def job_states(self, output_fn: str = "-"):
-        render_chart(generate_mermaid_gantt_chart(self._job_states()), output_fn)
+        return render_chart(generate_mermaid_gantt_chart(self._job_states()), output_fn)
 
     def recover(self, yes=False, dry=True):
         job_states = self._job_states()
@@ -256,12 +256,12 @@ class Project(ProjectConfig):
             jobname, job = jobs_torun.popitem()
             stack.append((jobname, job))
             while len(stack) > 0:
-                for j in stack[-1][1].job_preamble.dependency:
+                for j in scheduler.dependency(stack[-1][1].job_preamble):
                     if j in jobs_torun:
                         stack.append((j, jobs_torun.pop(j)))
                         break
                     if (j not in jobs) and (j != "START"):
-                        logger.warning("Job {} not found", j)
+                        logger.warning("Job {} not found in {}", j, jobs)
                 else:
                     jobname, job = stack.pop()
                     job_arg = self.commands[job.command].model_validate(job.config)
