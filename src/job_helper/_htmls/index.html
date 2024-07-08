@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Project Viewer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://unpkg.com/vue@3"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@0.21.1/dist/axios.min.js"></script>
+    <script src="https://unpkg.com/vue-mermaid-string"></script>
+    <style>
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 60px 0 0 0; /* Add top padding */
+  background-color: #f0f0f0;
+}
+#app {
+  background-color: #fff;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+h1 {
+  color: #333;
+  text-align: center; /* center the text */
+}
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.controls > label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.content {
+  width: 95%;
+  margin: auto;
+}
+
+.navbar {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  height: 50px; /* Define a height for the navbar */
+  z-index: 100;
+  background-color: #f8f9fa; /* Light gray */
+  padding: 10px 0; /* 10px top and bottom, 0 left and right */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Slight shadow for depth */
+  border-bottom: 1px solid #e7e7e7; /* Light border at the bottom */
+}
+
+@media (max-width: 600px) {
+  body {
+    font-size: 18px; /* Increase base font size */
+  }
+  .controls > label {
+    font-size: 18px; /* Increase label font size */
+  }
+  .controls > label > select {
+    height: 40px; /* Increase select box height */
+    font-size: 18px; /* Increase select box font size */
+  }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div class="navbar controls">
+        <label>
+          Project
+          <select v-model="selectedProject" @change="selectProject">
+            <option v-for="project in projects" :value="project">{{ project }}</option>
+          </select>
+        </label>
+        <label>
+          <input type="checkbox" v-model="compactMode">
+          Compact Mode
+        </label>
+      </div>
+      <div class="content">
+        <h1>Project running result</h1>
+        <vue-mermaid-string :value="ganttStr" :options="{ securityLevel: 'loose' }" v-if="gantt"></vue-mermaid-string>
+        <vue-mermaid-string :value="jobflowStr" :options="{ securityLevel: 'loose' }" v-if="jobflow"></vue-mermaid-string>
+      </div>
+    </div>
+
+    <script>
+    const { createApp, ref, onMounted, watch } = Vue;
+
+    const app = createApp({
+      components: {
+        'vue-mermaid-string': VueMermaidString
+      },
+      data() {
+        return {
+          gantt: null,
+          jobflow: null,
+          projects: [],
+          selectedProject: null,
+          compactMode: true
+        }
+      },
+      computed: {
+        ganttStr() {
+          if (this.gantt === null) {return null}
+          return (this.compactMode ? `---
+displayMode: compact
+---
+` : '') + this.gantt;
+        },
+        jobflowStr() {
+          if (this.jobflow === null) {return null}
+          let lines = this.jobflow.split('\n'); // split the string into lines
+          lines[0] = 'flowchart LR'; // replace the first line
+          return lines.join('\n'); // join the lines back into a string
+        },
+      },
+      methods: {
+        getGantt() {
+          if (this.selectedProject) {
+            axios.get(`/project_result/gantt/${this.selectedProject}`)
+              .then(response => {
+                this.gantt = response.data;
+              })
+              .catch(error => {
+                console.log(error);
+              });
+          }
+        },
+        getJobflow() {
+          if (this.selectedProject) {
+            axios.get(`/project_result/jobflow/${this.selectedProject}`)
+              .then(response => {
+                this.jobflow =  response.data;
+              })
+              .catch(error => {
+                console.log(error);
+              });
+          }
+        },
+        getSelectedProject(){
+          this.getGantt();
+          this.getJobflow();
+        },
+        selectProject() {
+          this.getGantt();
+          this.getJobflow();
+        }
+      },
+      mounted() {
+        axios.get('/project_result/')
+          .then(response => {
+            this.projects = response.data;
+          })
+          .catch(error => {
+            console.log(error);
+          });
+      },
+      watch: {
+        compactMode() {
+          this.getGantt();
+        }
+      }
+    });
+    app.mount('#app');
+    </script>
+  </body>
+</html>

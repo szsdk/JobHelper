@@ -17,6 +17,7 @@ from . import init_example
 from ._utils import dumps_toml
 from .config import JobHelperConfig, jhcfg
 from .project_helper import Project, ProjectRunningResult, get_scheduler
+from . import server
 
 
 def compress_log(dt: float = 24) -> None:
@@ -148,6 +149,7 @@ def console_main():
         "project": Project,
         "init": init,
         "project-result": ProjectRunningResult,
+        "server": server.run,
     }
 
     sys.path.append(os.getcwd())

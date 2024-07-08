@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from pydantic.networks import IPvAnyAddress
+import socket
+
 import os
 from pathlib import Path
-from typing import Annotated, Any, ClassVar, Union
+from typing import Annotated, Any, ClassVar, Union, Literal
 
 import toml
 from loguru import logger as logger
@@ -24,6 +27,19 @@ def dir_exists(v: Union[str, Path]) -> Path:
 
 
 DirExists = Annotated[DirectoryPath, BeforeValidator(dir_exists)]
+
+
+def get_available_port(start_port, end_port) -> int:
+    for port in range(start_port, end_port):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            if s.connect_ex(("localhost", port)) != 0:
+                return port
+    raise ValueError(f"No available port in range {start_port} to {end_port}")
+
+
+class ServerConfig(BaseModel):
+    ip: Union[IPvAnyAddress, Literal["localhost"]] = "localhost"
+    port: int = Field(default_factory=lambda: get_available_port(8000, 9000))
 
 
 class CLIConfig(BaseModel):
@@ -109,6 +125,9 @@ class JobHelperConfig(BaseModel):
     )
     project: ProjectConfig = Field(default_factory=ProjectConfig)
     cli: CLIConfig = Field(default_factory=CLIConfig, description="cli config")
+    server: ServerConfig = Field(
+        default_factory=ServerConfig, description="config for web server"
+    )
 
     @field_validator("commands", mode="after")
     def not_contains_reserved_commands(cls, v: dict[str, str]) -> dict[str, str]:

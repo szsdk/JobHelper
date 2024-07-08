@@ -42,10 +42,12 @@ _HTML_TEMPLATE = """
 </html>"""
 
 
-def render_chart(chart: str, output_fn: str):
+def render_chart(chart: str, output_fn: str) -> str:
+    if output_fn == "":
+        return chart
     if output_fn == "-":
         print(chart)
-        return
+        return chart
     output = Path(output_fn)
     if output.suffix == ".html":
         with output.open("w") as fp:
@@ -63,3 +65,4 @@ def render_chart(chart: str, output_fn: str):
     req = urllib.request.Request(url, headers=hdr)
     with urllib.request.urlopen(req) as response, output.open("wb") as fp:
         fp.write(response.read())
+    return chart
