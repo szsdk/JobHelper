@@ -1,5 +1,9 @@
+import time
+from datetime import datetime
+from functools import lru_cache
 from importlib import resources
 from pathlib import Path
+from typing import Optional
 
 import uvicorn
 from fastapi import FastAPI, Response
@@ -23,11 +27,69 @@ async def get_project_list() -> list[int]:
     return a
 
 
+@lru_cache
+def get_job_states(prr_fn, ttl_hash: Optional[int] = None):
+    del ttl_hash
+    prr = ProjectRunningResult.from_config(prr_fn)
+    return prr, prr._job_states()
+
+
+def get_ttl_hash(seconds=2) -> int:
+    """Return the same value withing `seconds` time period"""
+    return int(time.time() / seconds)
+
+
 @app.get("/project_result/gantt/{project_id}")
 async def get_project_result(project_id: int):
-    return ProjectRunningResult.from_config(
-        f"log/project/{project_id}.json"
-    ).job_states("")
+    prr, job_states = get_job_states(f"log/project/{project_id}.json", get_ttl_hash())
+    s = generate_mermaid_gantt_chart(job_states)
+    clicks = []
+    for job, state in job_states.items():
+        clicks.append(f'    click {job} call copyTextToClipboard("{state.JobID}")')
+    return s + "\n".join(clicks)
+
+
+def generate_mermaid_gantt_chart(jobs):
+    """
+    Generate Mermaid Gantt chart code from a dictionary of jobs.
+
+    Parameters:
+    - jobs: A dictionary where keys are job names and values are JobInfo instances.
+
+    Returns:
+    - A string containing the formatted Mermaid Gantt chart code.
+    """
+    # Start the Mermaid Gantt chart code
+    mermaid_code = """gantt
+    dateFormat  YYYY-MM-DDTHH:mm:ss.SSS
+    axisFormat  %H:%M:%S
+"""
+    state_map = {
+        "COMPLETED": "done",
+        "FAILED": "crit",
+        "RUNNING": "active",
+        "PENDING": "milestone",
+    }
+    for job_name, info in jobs.items():
+        if info.State == "PENDING":
+            end = datetime.now()
+            start = end
+        elif info.State == "RUNNING":
+            start = info.Start
+            end = datetime.now()
+        else:
+            start = datetime.now() if info.Start == "Unknown" else info.Start
+            end = datetime.now() if info.End == "Unknown" else info.End
+
+        if info.State in state_map:
+            state = state_map[info.State]
+        elif "CANCELLED" in info.State:
+            state = "crit"
+        else:
+            state = "crit"
+        mermaid_code += f"    {job_name} :{state}, {job_name}, {start.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]}, {end.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]} \n    %% {job_name}: {info.JobID} {info.State}\n"
+
+    return mermaid_code
 
 
 def flowchart(nodes: dict[str, str], links: dict[tuple[str, str], str]):
@@ -54,7 +116,7 @@ def flowchart(nodes: dict[str, str], links: dict[tuple[str, str], str]):
 
 @app.get("/project_result/jobflow/{project_id}")
 async def get_project_jobflow(project_id: int):
-    prr = ProjectRunningResult.from_config(f"log/project/{project_id}.json")
+    prr, job_states = get_job_states(f"log/project/{project_id}.json", get_ttl_hash())
 
     scheduler = get_scheduler()
     links = {
@@ -63,10 +125,9 @@ async def get_project_jobflow(project_id: int):
         for link_type in ["afterok", "after", "afternotok", "afterany"]
         for job_a in getattr(scheduler.dependency(job.job_preamble), link_type)
     }
-    jobs_states = prr._job_states()
     nodes = dict()
     clicks = []
-    for job, state in jobs_states.items():
+    for job, state in job_states.items():
         if state.State == "COMPLETED":
             nodes[job] = "completed"
         elif state.State == "FAILED":
