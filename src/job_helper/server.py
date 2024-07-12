@@ -27,7 +27,7 @@ async def get_project_list() -> list[int]:
     return a
 
 
-@lru_cache
+@lru_cache(maxsize=128)
 def get_job_states(prr_fn, ttl_hash: Optional[int] = None):
     del ttl_hash
     prr = ProjectRunningResult.from_config(prr_fn)
