@@ -5,8 +5,7 @@ import os
 import subprocess
 import sys
 from datetime import datetime
-from pathlib import Path
-from typing import Annotated, Any, Iterable, Literal, Optional, Union
+from typing import Annotated, Iterable, Literal, Optional, Union
 
 from loguru import logger
 from pydantic import (
@@ -150,7 +149,6 @@ class SlurmScheduler(Scheduler):
     shell: str = "/bin/sh"
     sbatch_cmd: Annotated[str, Field(description="sbatch command")] = "sbatch"
     sacct_cmd: Annotated[str, Field(description="sacct command")] = "sacct"
-    log_dir: Annotated[DirExists, Field(validate_default=True)] = Path()
     save_script: bool = Field(
         default=True, description="Save the script to the log_dir"
     )
