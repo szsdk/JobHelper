@@ -1,8 +1,6 @@
-import copy
 import datetime
 import os
 import pydoc
-import shlex
 import shutil
 import subprocess
 import sys
@@ -13,11 +11,10 @@ from typing import Any
 
 from loguru import logger
 
-from . import init_example
+from . import init_example, server
 from ._utils import dumps_toml
-from .config import JobHelperConfig, jhcfg
+from .config import CLIConfig, JobHelperConfig, ProjectConfig, SchedulerConfig, jhcfg
 from .project_helper import Project, ProjectRunningResult, get_scheduler
-from . import server
 
 
 def compress_log(dt: float = 24) -> None:
@@ -53,7 +50,7 @@ def log_cmd() -> None:
     log_sh ls -all
     ```
     """
-    logger.trace("running jh command", command=sys.argv, extra={"typename": "CMD"})
+    logger.trace("running jh command", command=sys.argv, typename="CMD")
 
 
 class Tools:
@@ -65,7 +62,7 @@ class Tools:
         ```
         """
         subprocess.run(command, shell=True, check=True)
-        logger.trace("running a sh command", command=command, extra={"typename": "SH"})
+        logger.trace("running a sh command", command=command, typename="SH")
 
     def log_message(self, message: str, level: str = "info") -> None:
         """
@@ -79,7 +76,7 @@ class Tools:
             "error": logger.error,
             "warning": logger.warning,
         }
-        log_cmds[level](message, extra={"typename": "MSG"})
+        log_cmds[level](message, typename="MSG")
 
     def compress_log(self, dt: float = 24) -> None:
         """
@@ -102,9 +99,9 @@ def init():
         exit(1)
 
     cfg = JobHelperConfig(
-        project={"log_dir": "log/project"},
-        scheduler={"name": "slurm", "config": {"log_dir": "log/slurm"}},
-        cli={"log_file": "log/cmd.log"},
+        project=ProjectConfig(log_dir=Path("log/project")),
+        scheduler=SchedulerConfig(name="slurm", config={"log_dir": "log/slurm"}),
+        cli=CLIConfig(log_file=Path("log/cmd.log")),
         commands={"add_one": "cli.AddOne", "tools": "job_helper.cli.tools"},
     )
 
@@ -129,6 +126,10 @@ def init():
     jh add-one -n 1 - run""")
 
 
+def filter_cmd_log(record):
+    return "typename" in record["extra"]
+
+
 def console_main():
     """
     This is the entry point of the job_helper commands.
@@ -144,7 +145,12 @@ def console_main():
         jhcfg.cli.logging_cmd = True
 
     if jhcfg.cli.logging_cmd:
-        logger.add(jhcfg.cli.log_file, serialize=jhcfg.cli.serialize_log, level="TRACE")
+        logger.add(
+            jhcfg.cli.log_file,
+            serialize=jhcfg.cli.serialize_log,
+            level="TRACE",
+            filter=filter_cmd_log,
+        )
     cmds: dict[str, Any] = {
         "project": Project,
         "init": init,
