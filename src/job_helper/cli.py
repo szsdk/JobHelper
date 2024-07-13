@@ -126,8 +126,17 @@ def init():
     jh add-one -n 1 - run""")
 
 
-def filter_cmd_log(record):
-    return "typename" in record["extra"]
+def add_logger():
+    logger.remove()
+    logger.add(sys.stdout, level="INFO")
+    logger.enable("job_helper")
+
+    if jhcfg.cli.logging_cmd:
+        logger.add(
+            jhcfg.cli.log_file,
+            serialize=jhcfg.cli.serialize_log,
+            level="TRACE",
+        )
 
 
 def console_main():
@@ -136,21 +145,11 @@ def console_main():
     """
     import fire
 
-    logger.remove()
-    logger.add(sys.stdout, level="INFO")
-    logger.enable("job_helper")
     if sys.argv[1] == "init":
         jhcfg.cli.log_file = Path("log/cmd.log")
         jhcfg.cli.serialize_log = True
         jhcfg.cli.logging_cmd = True
 
-    if jhcfg.cli.logging_cmd:
-        logger.add(
-            jhcfg.cli.log_file,
-            serialize=jhcfg.cli.serialize_log,
-            level="TRACE",
-            filter=filter_cmd_log,
-        )
     cmds: dict[str, Any] = {
         "project": Project,
         "init": init,
@@ -161,7 +160,7 @@ def console_main():
     sys.path.append(os.getcwd())
     # pre check command to avoid unnecessary import and improve performance
     if sys.argv[1] in cmds:
-        pass
+        add_logger()
     elif (cmd := sys.argv[1]) in jhcfg.commands:
         cmds.update({cmd: pydoc.locate(jhcfg.commands[cmd])})
     else:
