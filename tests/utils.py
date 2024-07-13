@@ -63,9 +63,11 @@ def slurm_server(monkeypatch, request):
         yield s
 
 
-def run_jh(cmd: str, cfg_src=Path("jh_config.toml")):
-    if isinstance(cfg_src, Path):
-        cfg_src = toml.load(cfg_src) if cfg_src.exists() else {}
+def run_jh(cmd: str):
+    if Path("pyproject.toml").exists():
+        cfg_src = toml.load("pyproject.toml")["tool"]["job_helper"]
+    else:
+        cfg_src = {}
     with (
         patch.object(sys, "argv", shlex.split(cmd)),
         MockJhcfg(**cfg_src),
