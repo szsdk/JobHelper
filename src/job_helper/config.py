@@ -140,8 +140,9 @@ def init_jhcfg():
     if "JHCFG" in os.environ:
         return JobHelperConfig.model_validate(toml.load(os.environ["JHCFG"]))
     if Path("pyproject.toml").exists():
-        content = toml.load("pyproject.toml")["tool"]["job_helper"]
-        return JobHelperConfig.model_validate(content)
+        content = toml.load("pyproject.toml").get("tool", {}).get("job_helper", None)
+        if content is not None:
+            return JobHelperConfig.model_validate(content)
     if Path("jh_config.toml").exists():
         return JobHelperConfig.model_validate(toml.load("jh_config.toml"))
 
