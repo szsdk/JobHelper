@@ -1,38 +1,37 @@
-[build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
-
-[project]
+[tool.poetry]
 name = "job_helper"
 version = "0.0.0"
-authors = [{ name = "Shen Zhou", email = "shen34206@hotmail.com" }]
 description = ""
-license = { text = "MIT" }
-dependencies = [
-   "fire", "loguru", "pydantic", "toml", "PyYAML", "fastapi", "uvicorn"
-]
+authors = ["Shen Zhou <shen34206@hotmail.com>"]
+license = "MIT"
 
-[project.optional-dependencies]
-tests = [
-    "coverage>=5.0.3",
-    "numpy",
-    "psutil",
-    "pdoc3",
-    "pytest",
-    "pytest-cov",
-    "pytest-html",
-    "pytest-metadata",
-    "zmq",
-]
+[tool.poetry.dependencies]
+python = "^3.10"
+fire = "*"
+loguru = "*"
+pydantic = "*"
+toml = "*"
+PyYAML = "*"
+fastapi = "*"
+uvicorn = "*"
 
-[project.scripts]
+[tool.poetry.dev-dependencies]
+coverage = ">=5.0.3"
+numpy = "*"
+psutil = "*"
+pdoc3 = "*"
+pytest = "*"
+pytest-cov = "*"
+pytest-html = "*"
+pytest-metadata = "*"
+zmq = "*"
+
+[tool.poetry.scripts]
 jh = "job_helper:cli.console_main"
 
-[tool.setuptools]
-zip-safe = false
-
-[tool.setuptools.package-data]
-"job_helper.init_example" = ["*.yaml"]
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
 log_cli = true
