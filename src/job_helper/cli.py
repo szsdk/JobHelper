@@ -118,6 +118,7 @@ def init():
             shutil.copy(p, f)
 
     with open("pyproject.toml", "a") as f:
+        logger.info("Adding job_helper configures to pyproject.toml")
         print(dumps_toml(cfg, ["tool", "job_helper"]), file=f)
 
     print("""Try:
