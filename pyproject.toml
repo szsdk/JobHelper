@@ -9,7 +9,7 @@ authors = [{ name = "Shen Zhou", email = "shen34206@hotmail.com" }]
 description = ""
 license = { text = "MIT" }
 dependencies = [
-   "fire", "loguru", "pydantic", "toml", "PyYAML"
+   "fire", "loguru", "pydantic", "toml", "PyYAML", "fastapi", "uvicorn"
 ]
 
 [project.optional-dependencies]
