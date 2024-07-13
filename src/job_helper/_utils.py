@@ -43,8 +43,10 @@ def add_description(arg, arg_dict):
                 arg_dict[k] = CV(val, description)
 
 
-def dumps_toml(arg: BaseModel) -> str:
+def dumps_toml(arg: BaseModel, leading_sections: list) -> str:
     arg_dict = arg.model_dump(mode="json")
     add_description(arg, arg_dict)
+    for section in leading_sections[::-1]:
+        arg_dict = {section: arg_dict}
 
     return toml.dumps(arg_dict, encoder=TomlDescriptionEncoder())

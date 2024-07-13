@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from pydantic.networks import IPvAnyAddress
-import socket
-
 import os
+import socket
 from pathlib import Path
-from typing import Annotated, Any, ClassVar, Union, Literal
+from typing import Annotated, Any, ClassVar, Literal, Union
 
 import toml
 from loguru import logger as logger
@@ -18,6 +16,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from pydantic.networks import IPvAnyAddress
 
 
 def dir_exists(v: Union[str, Path]) -> Path:
@@ -138,16 +137,16 @@ class JobHelperConfig(BaseModel):
 
 
 def init_jhcfg():
-    fn = None
     if "JHCFG" in os.environ:
-        fn = os.environ["JHCFG"]
-    elif Path("jh_config.toml").exists():
-        fn = "jh_config.toml"
+        return JobHelperConfig.model_validate(toml.load(os.environ["JHCFG"]))
+    if Path("pyproject.toml").exists():
+        content = toml.load("pyproject.toml")["tool"]["job_helper"]
+        return JobHelperConfig.model_validate(content)
+    if Path("jh_config.toml").exists():
+        return JobHelperConfig.model_validate(toml.load("jh_config.toml"))
 
-    if fn is None:
-        logger.warning("jh_config.toml or JHCFG is not found. Use default settings.")
-        return JobHelperConfig()
-    return JobHelperConfig.model_validate(toml.load(fn))
+    logger.warning("jh_config.toml or JHCFG is not found. Use default settings.")
+    return JobHelperConfig()
 
 
 jhcfg = init_jhcfg()

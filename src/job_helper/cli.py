@@ -117,8 +117,8 @@ def init():
         with as_file(example_data / f) as p:
             shutil.copy(p, f)
 
-    with open("jh_config.toml", "w") as f:
-        print(dumps_toml(cfg), file=f)
+    with open("pyproject.toml", "a") as f:
+        print(dumps_toml(cfg, ["tool", "job_helper"]), file=f)
 
     print("""Try:
     jh --help
