@@ -60,7 +60,7 @@ h1 {
     height: 40px; /* Increase select box height */
     font-size: 18px; /* Increase select box font size */
   }
-</style>
+    </style>
   </head>
   <body>
     <div id="app">
@@ -140,27 +140,28 @@ displayMode: compact
               });
           }
         },
-        getSelectedProject(){
+        selectProject() {
+          this.getProjects();
           this.getGantt();
           this.getJobflow();
         },
-        selectProject() {
-          this.getGantt();
-          this.getJobflow();
+        getProjects() {
+          axios.get('/project_result/')
+            .then(response => {
+              this.projects = response.data;
+            })
+            .catch(error => {
+              console.log(error);
+            });
         }
       },
       mounted() {
-        axios.get('/project_result/')
-          .then(response => {
-            this.projects = response.data;
-          })
-          .catch(error => {
-            console.log(error);
-          });
-    setInterval(() => {
-      this.getGantt();
-      this.getJobflow();
-    }, 30000);  // 30000 milliseconds = 30 seconds
+        this.getProjects();
+        setInterval(() => {
+          this.selectProject();
+          // this.getGantt();
+          // this.getJobflow();
+        }, 30000);  // 30000 milliseconds = 30 seconds
       },
       watch: {
         compactMode() {

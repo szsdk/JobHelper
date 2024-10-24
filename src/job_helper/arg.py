@@ -27,7 +27,10 @@ def doc_from_FieldInfo(field_info) -> str:
         doc_parts.append(f"Description: {field_info.description}")
 
     if field_info.annotation is not None:
-        doc_parts.append(f"Type: {field_info.annotation.__name__}")
+        if hasattr(field_info.annotation, "__name__"):
+            doc_parts.append(f"Type: {field_info.annotation.__name__}")
+        else:
+            doc_parts.append(f"Type: {field_info.annotation}")
 
     constraints_doc = ", ".join([str(i) for i in field_info.metadata])
     if constraints_doc != "":

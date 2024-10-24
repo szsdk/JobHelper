@@ -113,7 +113,10 @@ class JobComboArg(ProjectArgBase):
             else:
                 raise NotImplementedError
 
-            j = project.commands[j.command].model_validate(j.config)
+            if j.command in project.commands:
+                j = project.commands[j.command].model_validate(j.config)
+            else:
+                j = pydoc.locate(j.command).model_validate(j.config)
             cmds.append(
                 j.script(project) if isinstance(j, ProjectArgBase) else j.script()
             )
@@ -264,7 +267,10 @@ class Project(ProjectConfig):
                         logger.warning("Job {} not found in {}", j, jobs)
                 else:
                     jobname, job = stack.pop()
-                    job_arg = self.commands[job.command].model_validate(job.config)
+                    if job.command in self.commands:
+                        job_arg = self.commands[job.command].model_validate(job.config)
+                    else:
+                        job_arg = pydoc.locate(job.command).model_validate(job.config)
                     assert job.job_preamble is not None
                     jobs[jobname] = scheduler.submit(
                         job.job_preamble,
