@@ -1,7 +1,6 @@
 import logging
 from pathlib import Path
 
-import numpy as np
 from job_helper import JobArgBase
 
 
@@ -29,10 +28,12 @@ class SumDataArg(JobArgBase):
 
     def run(self):
         logging.info(f"Summing data from {self.input_fn}")
-        data = np.loadtxt(self.input_fn, dtype=int)
+        with open(self.input_fn, "r") as f:
+            data = f.read().split()
+            data = list(map(int, data))
         logging.info(f"writting sum to {self.output_fn}")
         with open(self.output_fn, "w") as f:
-            print(data.sum(), file=f)
+            print(sum(data), file=f)
 
     def script(self):
         return f"""

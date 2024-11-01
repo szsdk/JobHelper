@@ -1,14 +1,11 @@
 import json
 import urllib.error
-from pathlib import Path
-from unittest.mock import patch
 
-import numpy as np
 import pytest
 import yaml
+
 from job_helper import Project, ProjectConfig
 from job_helper.project_helper import ProjectRunningResult, flowchart, render_chart
-
 from tests.utils import slurm_server, testing_jhcfg
 
 
@@ -103,37 +100,42 @@ def test_flowchart(tmp_path):
 
 def test_project(project_cfg, slurm_server, testing_jhcfg):
     project_1 = Project(**yaml.safe_load(project_cfg))
-    data = np.arange(project_1.jobs["generate_data"].config["count"])
+    data = list(range(project_1.jobs["generate_data"].config["count"]))
     project_1.run(dry=False)
     slurm_server.complete_all()
-    np.testing.assert_array_equal(
-        np.loadtxt(
-            project_1.jobs["sum_data"].config["input_fn"],
-            dtype=int,
-        ),
-        data,
-    )
+
+    with open(project_1.jobs["sum_data"].config["input_fn"], "r") as f:
+        input_data = list(map(int, f.read().split()))
     assert (
-        np.loadtxt(project_1.jobs["sum_data"].config["output_fn"], dtype=int)
-        == data.sum()
-    )
+        input_data == data
+    ), f"Data in {project_1.jobs['sum_data'].config['input_fn']} does not match expected range."
+
+    with open(project_1.jobs["sum_data"].config["output_fn"], "r") as f:
+        output_data = int(f.read().strip())
+    assert (
+        output_data == sum(data)
+    ), f"Sum in {project_1.jobs['sum_data'].config['output_fn']} does not match expected sum."
 
     project_1.jobs["generate_data"].config["count"] = 20
-    data = np.arange(project_1.jobs["generate_data"].config["count"])
+    data = list(range(project_1.jobs["generate_data"].config["count"]))
 
     project_output_fn = project_1.run(dry=False, reruns="job_1", run_following=False)
     assert project_output_fn is not None
     ProjectRunningResult.from_config(project_output_fn).job_states()
 
     slurm_server.complete_all()
-    np.testing.assert_array_equal(
-        np.loadtxt(project_1.jobs["generate_data"].config["output_fn"], dtype=int),
-        data,
-    )
+
+    with open(project_1.jobs["generate_data"].config["output_fn"], "r") as f:
+        output_data = list(map(int, f.read().split()))
+    assert (
+        output_data == data
+    ), f"Data in {project_1.jobs['generate_data'].config['output_fn']} does not match expected range."
 
     project_1.run(dry=False, reruns="job_sleep")
     slurm_server.complete_all()
+
+    with open(project_1.jobs["sum_data"].config["output_fn"], "r") as f:
+        output_data = int(f.read().strip())
     assert (
-        np.loadtxt(project_1.jobs["sum_data"].config["output_fn"], dtype=int)
-        == data.sum()
-    )
+        output_data == sum(data)
+    ), f"Sum in {project_1.jobs['sum_data'].config['output_fn']} does not match expected sum."

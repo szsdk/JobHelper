@@ -29,9 +29,10 @@ DirExists = Annotated[DirectoryPath, BeforeValidator(dir_exists)]
 
 
 def get_available_port(start_port, end_port) -> int:
+    hostname = socket.gethostname()
     for port in range(start_port, end_port):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            if s.connect_ex(("localhost", port)) != 0:
+            if s.connect_ex((hostname, port)) != 0:
                 return port
     raise ValueError(f"No available port in range {start_port} to {end_port}")
 

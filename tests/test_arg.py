@@ -1,10 +1,9 @@
 from pathlib import Path
 
-import numpy as np
 import yaml
-from job_helper import ArgBase
 from pydantic import BaseModel
 
+from job_helper import ArgBase
 from tests.example_cmds import GenerateDataArg, SumDataArg
 
 
@@ -29,11 +28,26 @@ def test_Arg(tmpdir):
         print(yaml.dump(arg.model_dump()), file=f)
     assert GenerateDataArg.from_config(Path(cfg_fn)) == arg
     arg.run()
-    np.testing.assert_array_equal(np.loadtxt(arg.output_fn, dtype=int), np.arange(100))
+    with open(arg.output_fn, "r") as f:
+        data = f.read().split()
+        data = list(map(int, data))
+
+    expected_data = list(range(100))
+
+    assert (
+        data == expected_data
+    ), f"Data in {arg.output_fn} does not match expected range."
     assert GenerateDataArg.from_base64(arg.to_base64()) == arg
     arg.script()
 
     sum_arg = SumDataArg(input_fn=arg.output_fn, output_fn=str(tmpdir / "sum.txt"))
     sum_arg.run()
-    assert np.loadtxt(sum_arg.output_fn, dtype=int) == np.arange(100).sum()
+    with open(sum_arg.output_fn, "r") as f:
+        output_data = int(f.read().strip())
+
+    expected_sum = sum(range(100))
+
+    assert (
+        output_data == expected_sum
+    ), f"Sum in {sum_arg.output_fn} does not match expected sum."
     sum_arg.script()
