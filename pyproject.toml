@@ -2,6 +2,7 @@
 name = "job_helper"
 version = "0.0.0"
 description = ""
+readme = "README.md"
 authors = [
     { name = "Shen Zhou", email = "shen34206@hotmail.com" }
 ]
