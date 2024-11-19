@@ -8,7 +8,7 @@ from typing import Union
 
 import toml
 import yaml
-from pydantic import BaseModel, validate_call
+from pydantic import BaseModel, ConfigDict, validate_call
 
 
 def _multi_index(d, indices: str):
@@ -46,6 +46,8 @@ class ArgBase(BaseModel):
         ...
     ```
     """
+
+    model_config = ConfigDict(ser_json_inf_nan="constants")
 
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs):
