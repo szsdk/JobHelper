@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import pydoc
 import subprocess
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any, Optional, Union
@@ -253,7 +254,14 @@ class Project(ProjectConfig):
         v.update({"job_combo": JobComboArg, "shell": ShellCommand})
         return v
 
-    def _run_jobs(self, scheduler, jobs, jobs_torun: dict[str, JobConfig], dry: bool):
+    def _run_jobs(
+        self,
+        scheduler,
+        jobs,
+        jobs_torun: dict[str, JobConfig],
+        dry: bool,
+        sleep_seconds: int,
+    ):
         while len(jobs_torun) > 0:
             stack = []
             jobname, job = jobs_torun.popitem()
@@ -281,15 +289,23 @@ class Project(ProjectConfig):
                         jobname,
                         dry,
                     )
+                    time.sleep(sleep_seconds)
         return jobs
 
     def run(
-        self, reruns: str = "START", run_following: bool = True, dry: bool = True
+        self,
+        reruns: str = "START",
+        run_following: bool = True,
+        dry: bool = True,
+        sleep_seconds: int = 0,
     ) -> Optional[Path]:
+        """
+        sleep_seconds: controls the sleep time between two jobs
+        """
         scheduler = get_scheduler()
         jobs_torun = self._get_job_torun(scheduler, reruns, run_following)
         repo_states = [] if dry else RepoWatcher.from_jhcfg().repo_states()
-        jobs = self._run_jobs(scheduler, {}, jobs_torun, dry)
+        jobs = self._run_jobs(scheduler, {}, jobs_torun, dry, sleep_seconds)
         if len(jobs) == 0:
             logger.warning("No jobs to run")
             return
