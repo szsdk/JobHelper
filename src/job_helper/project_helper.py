@@ -4,6 +4,7 @@ import copy
 import pydoc
 import subprocess
 import time
+from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any, Optional, Union
@@ -53,9 +54,11 @@ def get_scheduler() -> Scheduler:
 class ProjectConfig(ArgBase):
     jobs: dict[str, JobConfig]
 
-    def _get_job_torun(self, scheduler, joblist, run_following) -> dict[str, JobConfig]:
+    def _get_job_torun(
+        self, scheduler, joblist, run_following
+    ) -> OrderedDict[str, JobConfig]:
         jobs = copy.copy(self.jobs)
-        jl = {}
+        jl = OrderedDict()
         for j in joblist.split(";"):
             jl[j] = jobs.pop(j, None)
         if not run_following:
@@ -258,13 +261,13 @@ class Project(ProjectConfig):
         self,
         scheduler,
         jobs,
-        jobs_torun: dict[str, JobConfig],
+        jobs_torun: OrderedDict[str, JobConfig],
         dry: bool,
         sleep_seconds: int,
     ):
         while len(jobs_torun) > 0:
             stack = []
-            jobname, job = jobs_torun.popitem()
+            jobname, job = jobs_torun.popitem(last=False)
             stack.append((jobname, job))
             while len(stack) > 0:
                 for j in scheduler.dependency(stack[-1][1].job_preamble):
