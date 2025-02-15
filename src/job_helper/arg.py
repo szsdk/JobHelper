@@ -99,4 +99,5 @@ class ArgBase(BaseModel):
 
 class JobArgBase(ArgBase):
     def script(self) -> str:
-        raise NotImplementedError
+        cls = type(self)
+        return f"python -m fire {cls.__module__} {cls.__qualname__} from-base64 {self.to_base64()} - run"
