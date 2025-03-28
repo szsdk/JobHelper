@@ -45,6 +45,9 @@ def get_scheduler() -> Scheduler:
         return SlurmScheduler.model_validate(jhcfg.scheduler.config)
     try:
         s = pydoc.locate(jhcfg.scheduler.name)
+        assert (isinstance(s, type)) and (issubclass(s, Scheduler)), (
+            f"Expected 's' to be a subclass of Scheduler, got {type(s)}"
+        )
         return s.model_validate(jhcfg.scheduler.config)
     except ImportError:
         pass
@@ -280,8 +283,10 @@ class Project(ProjectConfig):
                     jobname, job = stack.pop()
                     if job.command in self.commands:
                         job_arg = self.commands[job.command].model_validate(job.config)
+                    elif isinstance(obj := pydoc.locate(job.command), JobArgBase):
+                        job_arg = obj.model_validate(job.config)
                     else:
-                        job_arg = pydoc.locate(job.command).model_validate(job.config)
+                        raise NotImplementedError
                     assert job.job_preamble is not None
                     jobs[jobname] = scheduler.submit(
                         job.job_preamble,
