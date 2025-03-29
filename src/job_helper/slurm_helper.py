@@ -43,7 +43,7 @@ def parse_sacct_output(s) -> list[JobInfo]:
     return ans
 
 
-class SlrumDependency(BaseModel):
+class SlurmDependency(BaseModel):
     after: list[str] = Field(default_factory=list)
     afterany: list[str] = Field(default_factory=list)
     afternotok: list[str] = Field(default_factory=list)
@@ -87,7 +87,7 @@ class SlurmConfig(JobPreamble):
 
     model_config = ConfigDict(extra="allow", arbitrary_types_allowed=True)
     job_name: str = ""
-    dependency: SlrumDependency = SlrumDependency()
+    dependency: SlurmDependency = SlurmDependency()
     output: str = Field(
         default_factory=lambda: f"{SlurmScheduler.model_validate(jhcfg.scheduler.config).log_dir}/%j.out"
     )
@@ -103,7 +103,7 @@ class SlurmConfig(JobPreamble):
     @classmethod
     def from_list(cls, v):
         if isinstance(v, list):
-            return SlrumDependency(afterok=v)
+            return SlurmDependency(afterok=v)
         return v
 
     def preamble(self):
@@ -112,7 +112,7 @@ class SlurmConfig(JobPreamble):
             if v is None:
                 continue
             if k == "dependency":
-                v = v.slurm_str() if isinstance(v, SlrumDependency) else v
+                v = v.slurm_str() if isinstance(v, SlurmDependency) else v
                 if v == "":
                     continue
             else:
