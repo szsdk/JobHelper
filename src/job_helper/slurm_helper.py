@@ -28,7 +28,7 @@ class JobInfo(BaseModel):
     model_config = ConfigDict(extra="ignore")
     JobID: int
     State: str
-    Start: Union[datetime, Literal["Unknown"]] = "Unknown"
+    Start: Union[datetime, Literal["Unknown"], Literal["None"]] = "Unknown"
     End: Union[datetime, Literal["Unknown"]] = "Unknown"
 
 

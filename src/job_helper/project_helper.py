@@ -168,8 +168,8 @@ def generate_mermaid_gantt_chart(jobs):
             start = info.Start
             end = datetime.now()
         else:
-            start = datetime.now() if info.Start == "Unknown" else info.Start
-            end = datetime.now() if info.End == "Unknown" else info.End
+            start = datetime.now() if isinstance(info.Start, str) else info.Start
+            end = datetime.now() if isinstance(info.End, str) else info.End
 
         if info.State in state_map:
             state = state_map[info.State]
