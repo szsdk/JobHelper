@@ -283,10 +283,10 @@ class Project(ProjectConfig):
                     jobname, job = stack.pop()
                     if job.command in self.commands:
                         job_arg = self.commands[job.command].model_validate(job.config)
-                    elif isinstance(obj := pydoc.locate(job.command), JobArgBase):
+                    elif issubclass(obj := pydoc.locate(job.command), JobArgBase):
                         job_arg = obj.model_validate(job.config)
                     else:
-                        raise NotImplementedError
+                        raise NotImplementedError(f"{obj}")
                     assert job.job_preamble is not None
                     jobs[jobname] = scheduler.submit(
                         job.job_preamble,
