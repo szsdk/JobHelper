@@ -12,9 +12,10 @@ from threading import Event, Thread
 from typing import Literal, Optional, Union
 
 import zmq
-from job_helper.slurm_helper import JobInfo, SlurmScheduler
 from loguru import logger
 from pydantic import BaseModel, Field, TypeAdapter, model_validator, validate_call
+
+from job_helper.slurm_helper import JobInfo, SlurmScheduler
 
 PORT = int(os.environ["_TEST_PORT"]) if "_TEST_PORT" in os.environ else 5555
 
@@ -225,7 +226,7 @@ def sacct(
     assert isinstance(response, ServerState)
     if isinstance(jobs, int):
         jobs = [jobs]
-    print(_format_jobs(response.jobs[i] for i in jobs))
+    print(_format_jobs(response.jobs[i] for i in jobs if i in response.jobs))
     # return response
 
 

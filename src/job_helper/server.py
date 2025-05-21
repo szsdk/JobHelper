@@ -7,6 +7,7 @@ from typing import Optional
 
 import uvicorn
 from fastapi import FastAPI, Response
+from fastapi.responses import HTMLResponse, JSONResponse
 from loguru import logger
 
 from .config import jhcfg
@@ -39,17 +40,22 @@ def get_ttl_hash(seconds=2) -> int:
     return int(time.time() / seconds)
 
 
-@app.get("/project_result/gantt/{project_id}")
-async def get_project_result(project_id: int):
+@app.get("/project_result/gantt", response_class=HTMLResponse)
+async def get_project_result(project_id: int, compact: bool = False):
     prr, job_states = get_job_states(f"log/project/{project_id}.json", get_ttl_hash())
-    s = generate_mermaid_gantt_chart(job_states)
+    s = generate_mermaid_gantt_chart(job_states, compact=compact)
     clicks = []
     for job, state in job_states.items():
         clicks.append(f'    click {job} call copyTextToClipboard("{state.JobID}")')
-    return s + "\n".join(clicks)
+
+    return f"""
+    <div class="mermaid">
+        {s + "\n".join(clicks)}
+    </div>
+    """
 
 
-def generate_mermaid_gantt_chart(jobs):
+def generate_mermaid_gantt_chart(jobs, compact: bool = False):
     """
     Generate Mermaid Gantt chart code from a dictionary of jobs.
 
@@ -89,10 +95,18 @@ def generate_mermaid_gantt_chart(jobs):
             state = "crit"
         mermaid_code += f"    {job_name} :{state}, {job_name}, {start.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]}, {end.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]} \n    %% {job_name}: {info.JobID} {info.State}\n"
 
+    if compact:
+        mermaid_code = (
+            """---
+displayMode: compact
+---
+"""
+            + mermaid_code
+        )
     return mermaid_code
 
 
-def flowchart(nodes: dict[str, str], links: dict[tuple[str, str], str]):
+def flowchart(nodes: dict[str, str], links: dict[tuple[str, str], str], compact: bool):
     node_styles = {
         "norun": "    classDef norun fill:#ddd,stroke:#aaa,stroke-width:3px,stroke-dasharray: 5 5",
         "failed": "    classDef failed fill:#eaa,stroke:#e44",
@@ -105,7 +119,7 @@ def flowchart(nodes: dict[str, str], links: dict[tuple[str, str], str]):
         "afterok": "-->",
     }
 
-    flow = ["flowchart TD"]
+    flow = ["flowchart LR" if compact else "flowchart TD"]
     for (job_a, job_b), link in links.items():
         a = job_a if job_a not in nodes else f"{job_a}:::{nodes[job_a]}"
         b = job_b if job_b not in nodes else f"{job_b}:::{nodes[job_b]}"
@@ -114,8 +128,8 @@ def flowchart(nodes: dict[str, str], links: dict[tuple[str, str], str]):
     return "\n".join(flow)
 
 
-@app.get("/project_result/jobflow/{project_id}")
-async def get_project_jobflow(project_id: int):
+@app.get("/project_result/jobflow", response_class=HTMLResponse)
+async def get_project_jobflow(project_id: int, compact: bool = False):
     prr, job_states = get_job_states(f"log/project/{project_id}.json", get_ttl_hash())
 
     scheduler = get_scheduler()
@@ -138,8 +152,14 @@ async def get_project_jobflow(project_id: int):
             nodes[job] = "norun"
         clicks.append(f'    click {job} call copyTextToClipboard("{state.JobID}")')
 
-    s = flowchart(nodes, links)
-    return "\n".join([s] + clicks)
+    s = flowchart(nodes, links, compact)
+    # return "\n".join([s] + clicks)
+
+    return f"""
+    <div class="mermaid">
+        {"\n".join([s] + clicks)}
+    </div>
+    """
 
 
 def run():

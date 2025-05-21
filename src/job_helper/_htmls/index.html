@@ -1,195 +1,137 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>Project Viewer</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.31/vue.global.prod.min.js" integrity="sha512-Dg9zup8nHc50WBBvFpkEyU0H8QRVZTkiJa/U1a5Pdwf9XdbJj+hZjshorMtLKIg642bh/kb0+EvznGUwq9lQqQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.7.2/axios.min.js" integrity="sha512-JSCFHhKDilTRRXe9ak/FJ28dcpOJxzQaCd3Xg8MyF6XFjODhy/YMCM8HW0TFDckNHWUewW+kfvhin43hKtJxAw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vue-mermaid-string@6.0.0/dist/index.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+<head>
+    <title>JobHelper projects running results</title>
+    <link rel="icon" href="https://fav.farm/📊" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.2.3/mermaid.min.js"></script>
     <style>
-body {
-  font-family: Arial, sans-serif;
-  margin: 0;
-  padding: 60px 0 0 0; /* Add top padding */
-  background-color: #f0f0f0;
-}
-#app {
-  background-color: #fff;
-  box-shadow: 0 0 10px rgba(0,0,0,0.1);
-}
-h1 {
-  color: #333;
-  text-align: center; /* center the text */
-}
-.controls {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-.controls > label {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.content {
-  width: 95%;
-  margin: auto;
-}
-
-.navbar {
-  position: fixed;
-  top: 0;
-  width: 100%;
-  height: 50px; /* Define a height for the navbar */
-  z-index: 100;
-  background-color: #f8f9fa; /* Light gray */
-  padding: 10px 0; /* 10px top and bottom, 0 left and right */
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Slight shadow for depth */
-  border-bottom: 1px solid #e7e7e7; /* Light border at the bottom */
-}
-
-@media (max-width: 600px) {
-  body {
-    font-size: 18px; /* Increase base font size */
-  }
-  .controls > label {
-    font-size: 18px; /* Increase label font size */
-  }
-  .controls > label > select {
-    height: 40px; /* Increase select box height */
-    font-size: 18px; /* Increase select box font size */
-  }
+    .mermaid {
+      background-color: #ffffff;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      overflow-x: auto;
+    }
     </style>
-  </head>
-  <body>
-    <div id="app">
-      <div class="navbar controls">
-        <label>
-          Project
-          <select v-model="selectedProject" @change="selectProject">
-            <option v-for="project in projects" :value="project">{{ project }}</option>
-          </select>
-        </label>
-        <label>
-          <input type="checkbox" v-model="compactMode">
-          Compact Mode
-        </label>
-        <button @click="selectProject">
-          <i class="fas fa-sync-alt"></i>
-        </button>
-      </div>
-      <div class="content">
-        <h1>Project running result</h1>
-        <vue-mermaid-string :value="ganttStr" :options="{ securityLevel: 'loose' }" v-if="gantt"></vue-mermaid-string>
-        <vue-mermaid-string :value="jobflowStr" :options="{ securityLevel: 'loose' }" v-if="jobflow"></vue-mermaid-string>
-      </div>
+</head>
+<body class="bg-light">
+    <div class="container py-5">
+    <h1 class="mb-4 text-center">📊 <span style="font-family: monospace;font-weight: bold;">JobHelper</span>  projects running results</h1>
+
+    <div class="mb-4">
+      <label for="project-id" class="form-label fw-semibold">Select Project:</label>
+      <select id="project-id" name="project_id" class="form-select w-auto d-inline-block"></select>
+      <label>
+      <input type="checkbox" name="compact" id="compact-toggle" checked>
+      Compact Mode
+    </label>
     </div>
 
+    <div class="row">
+      <div class="col-md-12 mb-4">
+        <div id="gantt-display"></div>
+      </div>
+
+      <div class="col-md-12">
+        <div id="jobflow-display"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Load chart + jobflow when selection changes -->
+  <div
+    hx-trigger="change from:#project-id"
+    hx-get="/project_result/gantt"
+hx-include="#project-id, #compact-toggle"
+    hx-target="#gantt-display"
+  ></div>
+  <div
+    hx-trigger="change from:#project-id"
+    hx-get="/project_result/jobflow"
+hx-include="#project-id, #compact-toggle"
+    hx-target="#jobflow-display"
+  ></div>
+  <div
+    hx-trigger="change from:#compact-toggle"
+    hx-get="/project_result/gantt"
+hx-include="#project-id, #compact-toggle"
+    hx-target="#gantt-display"
+  ></div>
+  <div
+    hx-trigger="change from:#compact-toggle"
+    hx-get="/project_result/jobflow"
+hx-include="#project-id, #compact-toggle"
+    hx-target="#jobflow-display"
+  ></div>
+
+
     <script>
-    const { createApp, ref, onMounted, watch } = Vue;
-
-    const app = createApp({
-      components: {
-        'vue-mermaid-string': VueMermaidString
-      },
-      data() {
-        return {
-          gantt: null,
-          jobflow: null,
-          projects: [],
-          selectedProject: null,
-          compactMode: true
-        }
-      },
-      computed: {
-        ganttStr() {
-          if (this.gantt === null) {return null}
-          return (this.compactMode ? `---
-displayMode: compact
----
-` : '') + this.gantt;
-        },
-        jobflowStr() {
-          if (this.jobflow === null) {return null}
-          let lines = this.jobflow.split('\n'); // split the string into lines
-          lines[0] = 'flowchart LR'; // replace the first line
-          return lines.join('\n'); // join the lines back into a string
-        },
-      },
-      methods: {
-        getGantt() {
-          if (this.selectedProject) {
-            axios.get(`/project_result/gantt/${this.selectedProject}`)
-              .then(response => {
-                this.gantt = response.data;
-              })
-              .catch(error => {
-                console.log(error);
-              });
-          }
-        },
-        getJobflow() {
-          if (this.selectedProject) {
-            axios.get(`/project_result/jobflow/${this.selectedProject}`)
-              .then(response => {
-                this.jobflow =  response.data;
-              })
-              .catch(error => {
-                console.log(error);
-              });
-          }
-        },
-        selectProject() {
-          this.getProjects();
-          this.getGantt();
-          this.getJobflow();
-        },
-        getProjects() {
-          axios.get('/project_result/')
-            .then(response => {
-              this.projects = response.data;
-            })
-            .catch(error => {
-              console.log(error);
-            });
-        }
-      },
-      mounted() {
-        this.getProjects();
-        setInterval(() => {
-          this.selectProject();
-          // this.getGantt();
-          // this.getJobflow();
-        }, 30000);  // 30000 milliseconds = 30 seconds
-      },
-      watch: {
-        compactMode() {
-          this.getGantt();
-        }
-      }
+    // Initialize Mermaid with specific settings
+    document.addEventListener('DOMContentLoaded', function() {
+      mermaid.initialize({ 
+        startOnLoad: true,
+        theme: 'default',
+        securityLevel: 'loose',
+        htmlLabels: true
+      });
     });
-    app.mount('#app');
 
+    // Re-render Mermaid diagrams when new content is loaded
+    document.addEventListener('htmx:afterSwap', function() {
+      mermaid.init(undefined, '.mermaid');
+    });
+    </script>
+</body>
+</html>
 
-    function copyTextToClipboard(text) {
-      var textArea = document.createElement("textarea");
-      textArea.value = text;
-      document.body.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
+<script>
+// Fetch projects and populate dropdown on page load
+document.addEventListener('DOMContentLoaded', function() {
+  // Get the select element
+  const selectElem = document.getElementById('project-id');
 
-      try {
-        var successful = document.execCommand('copy');
-        var msg = successful ? 'successful' : 'unsuccessful';
-        alert('Job id (' + text + ') was copied.');
-      } catch (err) {
-        alert('Oops, unable to copy', err);
+  // Fetch project list from API
+  fetch('/project_result/')
+    .then(response => response.json())
+    .then(projects => {
+      // Populate dropdown with projects
+      for (const [id, projectData] of Object.entries(projects)) {
+        const option = document.createElement('option');
+        option.value = projectData;
+        // option.textContent = projectData.title;
+        option.textContent = projectData.toString();
+        selectElem.appendChild(option);
       }
 
-      document.body.removeChild(textArea);
-    }
+      // Trigger a change event to load the initial chart
+      if (selectElem.options.length > 0) {
+        const event = new Event('change');
+        selectElem.dispatchEvent(event);
+      }
+    })
+    .catch(error => {
+      console.error('Error fetching projects:', error);
+      document.getElementById('gantt-display').innerHTML = 
+        '<p>Error loading projects. Please try again later.</p>';
+    });
+});
+function copyTextToClipboard(text) {
+  var textArea = document.createElement("textarea");
+  textArea.value = text;
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
 
-    </script>
-  </body>
-</html>
+  try {
+    var successful = document.execCommand('copy');
+    var msg = successful ? 'successful' : 'unsuccessful';
+    alert('Job id (' + text + ') was copied.');
+  } catch (err) {
+    alert('Oops, unable to copy', err);
+  }
+
+  document.body.removeChild(textArea);
+}
+</script>
