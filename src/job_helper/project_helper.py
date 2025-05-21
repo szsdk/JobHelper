@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Annotated, Any, Optional, Union
 
 from loguru import logger
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator
 
 from ._mermaid_backend import flowchart, render_chart
 from .arg import ArgBase, JobArgBase
@@ -120,23 +120,40 @@ class JobComboArg(ProjectArgBase):
             else:
                 raise NotImplementedError
 
-            if j.command in project.commands:
-                j = project.commands[j.command].model_validate(j.config)
-            else:
-                j = pydoc.locate(j.command).model_validate(j.config)
+            j = project.commands[j.command].model_validate(j.config)
             cmds.append(
                 j.script(project) if isinstance(j, ProjectArgBase) else j.script()
             )
         return "\n".join(cmds)
 
 
-def _get_commands():
-    ans = {}
-    for cmd, arg_class in jhcfg.commands.items():
-        arg = pydoc.locate(arg_class)
-        if isinstance(arg, type) and issubclass(arg, ArgBase):
-            ans[cmd] = arg
-    return ans
+class CommandsManager:
+    def __init__(self, cmd_map: dict[str, str]):
+        self.commands = {"job_combo": JobComboArg, "shell": ShellCommand}
+        for cmd in self.commands:
+            if cmd in cmd_map:
+                raise ValueError(f"{cmd} is reserved.")
+        self._cmd_map = copy.deepcopy(cmd_map)
+
+    def __getitem__(self, item) -> Union[type[JobArgBase], type[ProjectArgBase]]:
+        if item in self.commands:
+            return self.commands[item]
+        if item in self._cmd_map:
+            cmd = pydoc.locate(self._cmd_map[item])
+        else:
+            cmd = pydoc.locate(item)
+
+        if isinstance(cmd, type) and (
+            issubclass(cmd, JobArgBase) or issubclass(cmd, ProjectArgBase)
+        ):
+            self.commands[item] = cmd
+            return cmd
+        raise KeyError(f"{item} not found in commands")
+
+    def __eq__(self, value, /) -> bool:
+        if not isinstance(value, CommandsManager):
+            return False
+        return self._cmd_map == value._cmd_map
 
 
 def generate_mermaid_gantt_chart(jobs):
@@ -195,15 +212,15 @@ class ProjectRunningResult(ArgBase):
         """
         This function gets the current state of the jobs and generates a Gantt chart from it.
         """
-        scheduler = get_scheduler()
-        if getattr(scheduler, "sacct_cmd", None) is None:
+        sacct_cmd = getattr(get_scheduler(), "sacct_cmd", None)
+        if sacct_cmd is None:
             raise ValueError(
                 "This function is only supported for Slurm (`sacct_cmd` should be given)."
             )
         id_to_name = {v: k for k, v in self.jobs.items()}
         result = subprocess.run(
             [
-                scheduler.sacct_cmd,
+                sacct_cmd,
                 "--jobs",
                 ",".join(map(str, self.jobs.values())),
                 "-ojobid,jobname,start,end,state",
@@ -244,21 +261,15 @@ class ProjectRunningResult(ArgBase):
 
 
 class Project(ProjectConfig):
-    commands: dict[str, Union[type[JobArgBase], type[ProjectArgBase]]] = Field(
-        default_factory=_get_commands, validate_default=True, exclude=True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    commands: CommandsManager = Field(
+        default_factory=lambda: CommandsManager(jhcfg.commands),
+        validate_default=True,
+        exclude=True,
     )
     jh_config: JHProjectConfig = Field(
         default_factory=lambda: copy.deepcopy(jhcfg.project), exclude=True
     )
-
-    @field_validator("commands", mode="after")
-    @classmethod
-    def add_default_commands(cls, v):
-        for cmd in ["job_combo", "shell"]:
-            if cmd in v:
-                raise ValueError(f"{cmd} is reserved.")
-        v.update({"job_combo": JobComboArg, "shell": ShellCommand})
-        return v
 
     def _run_jobs(
         self,
@@ -281,12 +292,7 @@ class Project(ProjectConfig):
                         logger.warning("Job {} not found in {}", j, jobs)
                 else:
                     jobname, job = stack.pop()
-                    if job.command in self.commands:
-                        job_arg = self.commands[job.command].model_validate(job.config)
-                    elif issubclass(obj := pydoc.locate(job.command), JobArgBase):
-                        job_arg = obj.model_validate(job.config)
-                    else:
-                        raise NotImplementedError(f"{obj}")
+                    job_arg = self.commands[job.command].model_validate(job.config)
                     assert job.job_preamble is not None
                     jobs[jobname] = scheduler.submit(
                         job.job_preamble,

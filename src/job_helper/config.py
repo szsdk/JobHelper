@@ -90,7 +90,11 @@ class RepoWatcherConfig(BaseModel):
 
 class ProjectConfig(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
-    log_dir: DirExists = Field(default=Path(""), validate_default=True)
+    log_dir: DirExists = Field(
+        default=Path(""),
+        validate_default=True,
+        description="Log directory. Defaults to the current directory. Providing an absolute path centralizes all log files into a single folder.",
+    )
 
 
 class SchedulerConfig(BaseModel):
@@ -115,7 +119,7 @@ class JobHelperConfig(BaseModel):
     _reserved_commands: ClassVar[list[str]] = ["init", "project"]
     commands: dict[str, str] = Field(
         default_factory=dict,
-        description="You can add your own command by adding item here. The key will be the command name. The value should be the class importing path, such as `cli.AddOne`.",
+        description="You can add custom commands here, for example: `add=cli.AddOne`. The key is the command name, and the value is the class import path. These commands can then be referenced in a job configuration file, providing a simple and convenient task runner. For more complex scenarios, this approach is not recommended. Instead, specify the class path directly in the job configuration file and consider using a more advanced task runner, such as `justfile` or `poethepoet`.",
     )
     scheduler: SchedulerConfig = Field(
         default_factory=lambda: SchedulerConfig(), description="scheduler config"
@@ -140,14 +144,18 @@ class JobHelperConfig(BaseModel):
 def init_jhcfg():
     if "JHCFG" in os.environ:
         return JobHelperConfig.model_validate(toml.load(os.environ["JHCFG"]))
-    if Path("pyproject.toml").exists():
-        content = toml.load("pyproject.toml").get("tool", {}).get("job_helper", None)
-        if content is not None:
-            return JobHelperConfig.model_validate(content)
-    if Path("jh_config.toml").exists():
-        return JobHelperConfig.model_validate(toml.load("jh_config.toml"))
-
-    logger.warning("jh_config.toml or JHCFG is not found. Use default settings.")
+    for c in [Path().resolve(), *Path().resolve().parents]:
+        p = c / "pyproject.toml"
+        if p.exists():
+            content = toml.load(p).get("tool", {}).get("job_helper", None)
+            if content is not None:
+                return JobHelperConfig.model_validate(content)
+        p = c / "jh_config.toml"
+        if p.exists():
+            return JobHelperConfig.model_validate(toml.load(p))
+    logger.warning(
+        "jh_config.toml or JHCFG environment variable or [job_helper] in a pyproject.toml is not found. Use default settings."
+    )
     return JobHelperConfig()
 
 
