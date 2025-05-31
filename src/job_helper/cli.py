@@ -140,6 +140,20 @@ def add_logger():
         )
 
 
+def viewer(fn: str):
+    """
+    Viewer for a project file
+    """
+    import yaml
+
+    from .viewer import JobViewerApp
+
+    with open(fn) as f:
+        job_data = yaml.safe_load(f)
+    app = JobViewerApp(job_data=job_data["jobs"])
+    app.run()
+
+
 def console_main():
     """
     This is the entry point of the job_helper commands.
@@ -156,6 +170,7 @@ def console_main():
         "init": init,
         "project-result": ProjectRunningResult,
         "server": server.run,
+        "viewer": viewer,
     }
 
     sys.path.append(os.getcwd())
