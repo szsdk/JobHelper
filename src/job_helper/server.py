@@ -7,7 +7,7 @@ from typing import Optional
 
 import uvicorn
 from fastapi import FastAPI, Response
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse
 from loguru import logger
 
 from .config import jhcfg
@@ -48,9 +48,10 @@ async def get_project_result(project_id: int, compact: bool = False):
     for job, state in job_states.items():
         clicks.append(f'    click {job} call copyTextToClipboard("{state.JobID}")')
 
+    mermaid_code = s + "\n" + "\n".join(clicks)
     return f"""
     <div class="mermaid">
-        {s + "\n".join(clicks)}
+        {mermaid_code}
     </div>
     """
 
@@ -153,11 +154,11 @@ async def get_project_jobflow(project_id: int, compact: bool = False):
         clicks.append(f'    click {job} call copyTextToClipboard("{state.JobID}")')
 
     s = flowchart(nodes, links, compact)
-    # return "\n".join([s] + clicks)
 
+    mermaid_code = s + "\n" + "\n".join(clicks)
     return f"""
     <div class="mermaid">
-        {"\n".join([s] + clicks)}
+        {mermaid_code}
     </div>
     """
 
