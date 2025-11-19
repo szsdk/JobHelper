@@ -1,17 +1,17 @@
 jobs:
   job1:
-    command: add_one
+    command: cli.AddOne
     config:
       num: 3
     job_preamble:
       dependency:
         - START
   job2_0:
-    command: add_one
+    command: cli.AddOne
     config:
       num: 4
   job2:
-    command: job_combo
+    command: job_helper.JobComboArg
     config:
       jobs:
         - sh: sleep 0.5

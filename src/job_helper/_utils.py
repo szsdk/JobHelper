@@ -29,7 +29,7 @@ class CV:
 
 
 def add_description(arg, arg_dict):
-    for k, v in arg.model_fields.items():
+    for k, v in type(arg).model_fields.items():
         if arg_dict.get(k, None) is None:
             continue
         sub_arg = getattr(arg, k)

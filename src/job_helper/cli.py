@@ -102,7 +102,7 @@ def init():
         project=ProjectConfig(log_dir=Path("log/project")),
         scheduler=SchedulerConfig(name="slurm", config={"log_dir": "log/slurm"}),
         cli=CLIConfig(log_file=Path("log/cmd.log")),
-        commands={"add_one": "cli.AddOne", "tools": "job_helper.cli.tools"},
+        # commands={"add_one": "cli.AddOne", "tools": "job_helper.cli.tools"},
     )
 
     if (Path() / ".git").exists():
@@ -171,6 +171,7 @@ def console_main():
         "project-result": ProjectRunningResult,
         "server": server.run,
         "viewer": viewer,
+        "tools": tools,
     }
 
     sys.path.append(os.getcwd())

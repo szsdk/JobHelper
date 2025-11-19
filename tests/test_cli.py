@@ -2,7 +2,6 @@ import subprocess
 
 from job_helper import cli, jhcfg
 from job_helper.project_helper import get_scheduler
-
 from tests.utils import run_jh, slurm_server, testing_jhcfg
 
 
@@ -11,10 +10,6 @@ def test_init(tmp_path, monkeypatch, capsys, slurm_server):
     monkeypatch.chdir(tmp_path)
     run_jh("jh init")
     capsys.readouterr()
-    run_jh("jh add-one -n 2 - run")
-    captured = capsys.readouterr()
-    assert captured.out.splitlines()[-1] == "3"
-    assert captured.err == ""
     subprocess.run(
         """git init
     git add .
