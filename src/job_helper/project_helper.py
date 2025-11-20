@@ -161,13 +161,12 @@ class CommandsManager:
         return self._cmd_map == value._cmd_map
 
 
-def generate_mermaid_gantt_chart(jobs, compact: bool = False):
+def generate_mermaid_gantt_chart(jobs):
     """
     Generate Mermaid Gantt chart code from a dictionary of jobs.
 
     Parameters:
     - jobs: A dictionary where keys are job names and values are JobInfo instances.
-    - compact: If True, add compact display mode to the chart.
 
     Returns:
     - A string containing the formatted Mermaid Gantt chart code.
@@ -191,8 +190,8 @@ def generate_mermaid_gantt_chart(jobs, compact: bool = False):
             start = info.Start
             end = datetime.now()
         else:
-            start = datetime.now() if info.Start == "Unknown" else info.Start
-            end = datetime.now() if info.End == "Unknown" else info.End
+            start = datetime.now() if isinstance(info.Start, str) else info.Start
+            end = datetime.now() if isinstance(info.End, str) else info.End
 
         if info.State in state_map:
             state = state_map[info.State]
@@ -200,16 +199,8 @@ def generate_mermaid_gantt_chart(jobs, compact: bool = False):
             state = "crit"
         else:
             state = "crit"
-        mermaid_code += f"    {job_name} :{state}, {job_name}, {start.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]}, {end.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]} \n    %% {job_name}: {info.JobID} {info.State}\n"
+        mermaid_code += f"    {job_name} :{state}, {start.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]}, {end.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]} \n    %% {job_name}: {info.JobID} {info.State}\n"
 
-    if compact:
-        mermaid_code = (
-            """---
-displayMode: compact
----
-"""
-            + mermaid_code
-        )
     return mermaid_code
 
 
