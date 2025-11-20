@@ -1,7 +1,5 @@
-import sys
 from typing import Any, Union
 
-import yaml
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Vertical

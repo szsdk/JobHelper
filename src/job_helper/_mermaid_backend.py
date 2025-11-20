@@ -52,7 +52,7 @@ def render_chart(chart: str, output_fn: str) -> str:
     if output.suffix == ".html":
         with output.open("w") as fp:
             print(_HTML_TEMPLATE.format(mermaid_code=chart), file=fp)
-        return
+        return chart
     url = base64.urlsafe_b64encode(zlib.compress(chart.encode(), 9)).decode("ascii")
     if output.suffix == ".png":
         url = "https://kroki.io/mermaid/png/" + url
@@ -63,6 +63,12 @@ def render_chart(chart: str, output_fn: str) -> str:
     print(url)
     hdr = {"User-Agent": "Mozilla/5.0"}
     req = urllib.request.Request(url, headers=hdr)
-    with urllib.request.urlopen(req) as response, output.open("wb") as fp:
-        fp.write(response.read())
+    try:
+        with urllib.request.urlopen(req) as response, output.open("wb") as fp:
+            fp.write(response.read())
+    except (urllib.error.URLError, urllib.error.HTTPError) as e:
+        raise RuntimeError(
+            f"Failed to render chart via kroki.io: {e}. "
+            f"You can save as HTML instead by using output_fn='{output.stem}.html'"
+        ) from e
     return chart

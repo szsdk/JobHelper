@@ -6,7 +6,6 @@ import yaml
 
 from job_helper import Project, ProjectConfig
 from job_helper.project_helper import ProjectRunningResult, flowchart, render_chart
-from tests.utils import slurm_server, testing_jhcfg
 
 
 @pytest.fixture(scope="session")

@@ -16,7 +16,7 @@ from pydantic import (
     model_validator,
 )
 
-from .config import DirExists, jhcfg
+from .config import jhcfg
 from .scheduler import JobPreamble, Scheduler
 
 _env0 = (  # noqa: E402

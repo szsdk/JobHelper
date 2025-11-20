@@ -6,7 +6,6 @@ from job_helper.slurm_helper import parse_sacct_output
 
 import tests.fake_slurm as fs
 from tests.fake_slurm import JobInfo
-from tests.utils import slurm_server
 
 
 @pytest.mark.parametrize(

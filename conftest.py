@@ -2,6 +2,8 @@ import pytest
 import zmq
 
 import tests.fake_slurm
+# Import fixtures so they're available to all tests
+from tests.utils import slurm_server, testing_jhcfg  # noqa: F401
 
 
 @pytest.fixture(autouse=True)
