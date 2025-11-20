@@ -114,13 +114,18 @@ class JobComboArg(ProjectArgBase):
                 cmds.append(job.sh)
                 continue
             if isinstance(job, str):
+                if job not in project.jobs:
+                    raise ValueError(f"Job '{job}' not found in project jobs")
                 j = project.jobs[job]
             elif isinstance(job, JobConfig):
                 j = job
             else:
-                raise NotImplementedError
+                raise NotImplementedError(f"Unsupported job type: {type(job)}")
 
-            j = project.commands[j.command].model_validate(j.config)
+            try:
+                j = project.commands[j.command].model_validate(j.config)
+            except KeyError:
+                raise ValueError(f"Command '{j.command}' not found in project commands")
             cmds.append(
                 j.script(project) if isinstance(j, ProjectArgBase) else j.script()
             )

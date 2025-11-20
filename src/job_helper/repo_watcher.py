@@ -13,8 +13,9 @@ from .config import RepoWatcherConfig, jhcfg
 
 def git_status(repo_dir) -> list[tuple[str, str]]:
     """
-    Check the Git status of the current folder or the whole repository.
-    `scope` can be either "folder" or "repository".
+    Check the Git status of files in the repository.
+    
+    Returns a list of tuples containing (filename, status_code).
     """
 
     # Run the 'git status . -s' command

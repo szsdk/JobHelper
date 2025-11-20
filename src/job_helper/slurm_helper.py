@@ -74,6 +74,8 @@ class SlurmDependency(BaseModel):
                         ansk.append(j)
                     elif jobs[j].job_id is not None:
                         ansk.append(str(jobs[j].job_id))
+                    else:
+                        logger.warning(f"Job '{j}' has no job_id yet, skipping dependency")
                 else:
                     if j != "START":
                         logger.warning("job {} not found", j)
@@ -192,15 +194,17 @@ class SlurmScheduler(Scheduler):
             return self
 
         result = subprocess.run(
-            slurm_script, shell=True, stdout=subprocess.PIPE, env=_env0
+            slurm_script, shell=True, capture_output=True, env=_env0
         )
         stdout = result.stdout.decode("utf-8").strip()
         if result.returncode != 0:
-            logger.error(result.stderr)
+            stderr = result.stderr.decode("utf-8") if result.stderr else "No error message"
+            logger.error(f"sbatch failed with return code {result.returncode}: {stderr}")
             sys.exit(1)
         job.job_id = int(stdout)
         logger.info("Submitted job {} to {}", job.config.job_name, job.job_id)
         if self.save_script:
             with (self.log_dir / f"{job.job_id}_slurm.sh").open("w") as fp:
                 print(script, file=fp)
+        return self
         return self

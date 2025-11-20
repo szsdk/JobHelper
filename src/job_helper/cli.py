@@ -39,7 +39,7 @@ def compress_log(dt: float = 24) -> None:
     logger.info(f"Compressing {len(files)} files to {now_str}.tar.gz")
     with tarfile.open(log_dir / f"{now_str}.tar.gz", "w:gz") as tar:
         for file in files:
-            tar.add(file)
+            tar.add(file, arcname=file.name)
             file.unlink()
 
 
