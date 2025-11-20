@@ -4,6 +4,7 @@ import base64
 import urllib.request
 import zlib
 from pathlib import Path
+from typing import Optional
 
 
 def flowchart(nodes: dict[str, str], links: dict[tuple[str, str], str]):
@@ -42,7 +43,7 @@ _HTML_TEMPLATE = """
 </html>"""
 
 
-def render_chart(chart: str, output_fn: str) -> str:
+def render_chart(chart: str, output_fn: str, timeout: float = 5.0) -> Optional[str]:
     if output_fn == "":
         return chart
     if output_fn == "-":
@@ -63,6 +64,9 @@ def render_chart(chart: str, output_fn: str) -> str:
     print(url)
     hdr = {"User-Agent": "Mozilla/5.0"}
     req = urllib.request.Request(url, headers=hdr)
-    with urllib.request.urlopen(req) as response, output.open("wb") as fp:
+    with (
+        urllib.request.urlopen(req, timeout=timeout) as response,
+        output.open("wb") as fp,
+    ):
         fp.write(response.read())
     return chart

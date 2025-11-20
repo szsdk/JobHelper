@@ -43,7 +43,7 @@ jobs:
     command: sum_data
     config:
       input_fn: {data_fn}
-      output_fn: {dir / 'sum.txt'}
+      output_fn: {dir / "sum.txt"}
     job_preamble:
       dependency:
         - job_1
@@ -67,14 +67,13 @@ def test_jobflow(output_fn, project_cfg, tmp_path):
     print(str(tmp_path / output_fn))
     try:
         ProjectConfig.model_validate(yaml.safe_load(project_cfg)).jobflow(
-            output_fn="-" if output_fn == "-" else str(tmp_path / output_fn)
+            output_fn="-" if output_fn == "-" else str(tmp_path / output_fn),
+            timeout=2.0,
         )
+    except TimeoutError:
+        pytest.skip("Kroki server timeout")
     except urllib.error.HTTPError as e:
-        err = e.read().decode()
-        if "400" in err:
-            pytest.skip(err)
-        else:
-            raise e
+        pytest.skip(e.read().decode())
 
 
 def test_flowchart(tmp_path):
@@ -89,13 +88,12 @@ def test_flowchart(tmp_path):
                 links={("job_1", "job_3"): "afterok", ("job_2", "job_3"): "afterany"},
             ),
             tmp_path / "t.png",
+            timeout=2.0,
         )
+    except TimeoutError:
+        pytest.skip("Kroki server timeout")
     except urllib.error.HTTPError as e:
-        err = e.read().decode()
-        if "400" in err:
-            pytest.skip(err)
-        else:
-            raise e
+        pytest.skip(e.read().decode())
 
 
 def test_project(project_cfg, slurm_server, testing_jhcfg):
@@ -106,15 +104,15 @@ def test_project(project_cfg, slurm_server, testing_jhcfg):
 
     with open(project_1.jobs["sum_data"].config["input_fn"], "r") as f:
         input_data = list(map(int, f.read().split()))
-    assert (
-        input_data == data
-    ), f"Data in {project_1.jobs['sum_data'].config['input_fn']} does not match expected range."
+    assert input_data == data, (
+        f"Data in {project_1.jobs['sum_data'].config['input_fn']} does not match expected range."
+    )
 
     with open(project_1.jobs["sum_data"].config["output_fn"], "r") as f:
         output_data = int(f.read().strip())
-    assert (
-        output_data == sum(data)
-    ), f"Sum in {project_1.jobs['sum_data'].config['output_fn']} does not match expected sum."
+    assert output_data == sum(data), (
+        f"Sum in {project_1.jobs['sum_data'].config['output_fn']} does not match expected sum."
+    )
 
     project_1.jobs["generate_data"].config["count"] = 20
     data = list(range(project_1.jobs["generate_data"].config["count"]))
@@ -127,15 +125,15 @@ def test_project(project_cfg, slurm_server, testing_jhcfg):
 
     with open(project_1.jobs["generate_data"].config["output_fn"], "r") as f:
         output_data = list(map(int, f.read().split()))
-    assert (
-        output_data == data
-    ), f"Data in {project_1.jobs['generate_data'].config['output_fn']} does not match expected range."
+    assert output_data == data, (
+        f"Data in {project_1.jobs['generate_data'].config['output_fn']} does not match expected range."
+    )
 
     project_1.run(dry=False, reruns="job_sleep")
     slurm_server.complete_all()
 
     with open(project_1.jobs["sum_data"].config["output_fn"], "r") as f:
         output_data = int(f.read().strip())
-    assert (
-        output_data == sum(data)
-    ), f"Sum in {project_1.jobs['sum_data'].config['output_fn']} does not match expected sum."
+    assert output_data == sum(data), (
+        f"Sum in {project_1.jobs['sum_data'].config['output_fn']} does not match expected sum."
+    )

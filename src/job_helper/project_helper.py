@@ -91,7 +91,8 @@ class ProjectConfig(ArgBase):
         reruns: str = "START",
         run_following: bool = True,
         output_fn="-",
-    ) -> str:
+        timeout: float = 5.0,
+    ) -> Optional[str]:
         scheduler = get_scheduler()
         jobs_torun = self._get_job_torun(scheduler, reruns, run_following)
         nodes = {k: "norun" for k in self.jobs.keys() if k not in jobs_torun}
@@ -101,7 +102,7 @@ class ProjectConfig(ArgBase):
             for link_type in ["afterok", "after", "afternotok", "afterany"]
             for job_a in getattr(scheduler.dependency(job.job_preamble), link_type)
         }
-        return render_chart(flowchart(nodes, links), output_fn)
+        return render_chart(flowchart(nodes, links), output_fn, timeout=timeout)
 
 
 class JobComboArg(ProjectArgBase):
@@ -234,8 +235,10 @@ class ProjectRunningResult(ArgBase):
             for job in parse_sacct_output(result.stdout.decode())
         }
 
-    def job_states(self, output_fn: str = "-"):
-        return render_chart(generate_mermaid_gantt_chart(self._job_states()), output_fn)
+    def job_states(self, output_fn: str = "-", timeout: float = 5.0) -> Optional[str]:
+        return render_chart(
+            generate_mermaid_gantt_chart(self._job_states()), output_fn, timeout=timeout
+        )
 
     def recover(self, yes=False, dry=True):
         job_states = self._job_states()
