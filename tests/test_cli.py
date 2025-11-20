@@ -1,7 +1,7 @@
 import subprocess
 
 from job_helper import cli
-from job_helper.project_helper import get_scheduler
+from job_helper.project_helper import ProjectRunningResult, get_scheduler
 from tests.utils import run_jh
 
 
@@ -35,7 +35,7 @@ def test_pipeline(tmp_path, monkeypatch, slurm_server):
     monkeypatch.chdir(tmp_path)
 
     print(tmp_path)
-    subprocess.run(
+    result = subprocess.run(
         """
 jh init
 git init
@@ -45,6 +45,7 @@ python -m fire cli AddOne -n 2 - run
 jh project from-config project.yaml run --nodry
 jh project-result from-config log/project/1.json - job_states
 jh project-result from-config log/project/1.json - job_states -o tt.html
+jh project-result from-config log/project/1.json - _job_states
 jh tools log-sh "echo 123 >> log/slurm/test.out"
 jh tools log-message "hello" warning
 jh tools compress-log 0
@@ -53,3 +54,8 @@ jh tools compress-log 0
         cwd=tmp_path,
         check=True,
     )
+    for j in (
+        ProjectRunningResult.from_config("log/project/1.json")._job_states().values()
+    ):
+        assert j.State == "COMPLETED"
+    assert result.returncode == 0

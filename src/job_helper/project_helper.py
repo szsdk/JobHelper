@@ -18,7 +18,7 @@ from .config import ProjectConfig as JHProjectConfig
 from .config import jhcfg
 from .repo_watcher import RepoState, RepoWatcher
 from .scheduler import JobPreamble, Scheduler
-from .slurm_helper import SlurmScheduler, parse_sacct_output
+from .slurm_helper import JobInfo, SlurmScheduler, parse_sacct_output
 
 
 class ShellCommand(JobArgBase):
@@ -209,7 +209,7 @@ class ProjectRunningResult(ArgBase):
     def to_project(self) -> Project:
         return Project.model_validate(self.config.model_dump())
 
-    def _job_states(self):
+    def _job_states(self) -> dict[str, JobInfo]:
         """
         This function gets the current state of the jobs and generates a Gantt chart from it.
         """
