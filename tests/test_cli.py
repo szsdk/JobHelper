@@ -41,7 +41,7 @@ jh init
 git init
 git add .
 git commit -m "init"
-jh add-one -n 2 - run
+python -m fire cli AddOne -n 2 - run
 jh project from-config project.yaml run --nodry
 jh project-result from-config log/project/1.json - job_states
 jh project-result from-config log/project/1.json - job_states -o tt.html
