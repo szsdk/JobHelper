@@ -39,7 +39,7 @@ def compress_log(dt: float = 24) -> None:
     logger.info(f"Compressing {len(files)} files to {now_str}.tar.gz")
     with tarfile.open(log_dir / f"{now_str}.tar.gz", "w:gz") as tar:
         for file in files:
-            tar.add(file)
+            tar.add(file, arcname=file.name)
             file.unlink()
 
 
@@ -160,7 +160,11 @@ def console_main():
     """
     import fire
 
-    if sys.argv[1] == "init":
+    # Check if we have enough arguments
+    if len(sys.argv) < 2:
+        # Let fire handle the help message
+        pass
+    elif sys.argv[1] == "init":
         jhcfg.cli.log_file = Path("log/cmd.log")
         jhcfg.cli.serialize_log = True
         jhcfg.cli.logging_cmd = True
@@ -176,9 +180,9 @@ def console_main():
 
     sys.path.append(os.getcwd())
     # pre check command to avoid unnecessary import and improve performance
-    if sys.argv[1] in cmds:
+    if len(sys.argv) >= 2 and sys.argv[1] in cmds:
         add_logger()
-    elif (cmd := sys.argv[1]) in jhcfg.commands:
+    elif len(sys.argv) >= 2 and (cmd := sys.argv[1]) in jhcfg.commands:
         cmds.update({cmd: pydoc.locate(jhcfg.commands[cmd])})
     else:
         cmds.update(

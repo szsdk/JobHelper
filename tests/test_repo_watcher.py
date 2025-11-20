@@ -27,7 +27,7 @@ def test_RepoWatcher(tmp_path):
     assert len(rs) == 1
     assert ("test.txt", "M ") in rs[0].status
     assert ("test2.txt", "??") in rs[0].status
-    assert rs[0].direcotry == test_repo
+    assert rs[0].directory == test_repo
     assert len(rs[0].diff) > 0
 
     w = RepoWatcher(force_commit_repos=[test_repo])

@@ -30,7 +30,7 @@ def git_status(repo_dir) -> list[tuple[str, str]]:
 
 
 class RepoState(BaseModel):
-    direcotry: Path
+    directory: Path
     commit: str
     diff: str
     status: list[tuple[str, str]]
@@ -42,7 +42,7 @@ class RepoState(BaseModel):
         compressed_diff = zlib.compress(git_diff)
 
         return RepoState(
-            direcotry=dir,
+            directory=dir,
             commit=(
                 subprocess.check_output("git rev-parse HEAD", shell=True, cwd=dir)
                 .decode()
@@ -63,7 +63,7 @@ class RepoWatcher(RepoWatcherConfig):
         for repo in self.force_commit_repos:
             rs = RepoState.from_folder(repo)
             if rs.diff != "":
-                raise Exception(f"Uncommitted changes in {rs.direcotry}")
+                raise Exception(f"Uncommitted changes in {rs.directory}")
             ans.append(RepoState.from_folder(repo))
         for repo in self.watched_repos:
             ans.append(RepoState.from_folder(repo))
