@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 import toml
-from job_helper import jhcfg, scheduler
+from job_helper import jhcfg
 from job_helper.cli import JobHelperConfig, console_main
 from pydantic import BaseModel
 

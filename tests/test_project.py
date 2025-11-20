@@ -6,7 +6,6 @@ import yaml
 
 from job_helper import Project, ProjectConfig
 from job_helper.project_helper import ProjectRunningResult, flowchart, render_chart
-from tests.utils import slurm_server, testing_jhcfg
 
 
 @pytest.fixture(scope="session")
@@ -43,7 +42,7 @@ jobs:
     command: sum_data
     config:
       input_fn: {data_fn}
-      output_fn: {dir / "sum.txt"}
+      output_fn: {dir / 'sum.txt'}
     job_preamble:
       dependency:
         - job_1

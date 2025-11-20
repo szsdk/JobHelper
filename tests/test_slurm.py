@@ -1,7 +1,6 @@
-from job_helper import Slurm, jhcfg
+from job_helper import Slurm
 from job_helper.project_helper import get_scheduler
 
-from tests.utils import slurm_server, testing_jhcfg
 
 
 def test_s(tmpdir, testing_jhcfg, slurm_server):

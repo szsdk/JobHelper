@@ -1,8 +1,8 @@
 import subprocess
 
-from job_helper import cli, jhcfg
+from job_helper import cli
 from job_helper.project_helper import get_scheduler
-from tests.utils import run_jh, slurm_server, testing_jhcfg
+from tests.utils import run_jh
 
 
 def test_init(tmp_path, monkeypatch, capsys, slurm_server):
