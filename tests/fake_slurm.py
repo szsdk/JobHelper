@@ -22,6 +22,7 @@ PORT = int(os.environ["_TEST_PORT"]) if "_TEST_PORT" in os.environ else 5555
 
 class SubmitCommand(BaseModel):
     script: str
+    cwd: Path
 
 
 class StopCommand(BaseModel):
@@ -85,11 +86,13 @@ def worker(job_queue, jobs: dict[int, JobInfo], stop_event, finish_event):
         if finish_event.is_set() and job_queue.empty():
             break
         try:
-            job_id, script = job_queue.get(timeout=1)
+            job_id, cmd = job_queue.get(timeout=1)
             job = jobs[job_id]
             job.State = "RUNNING"
             job.Start = datetime.now()
-            result = subprocess.run(script, shell=True, executable="/bin/bash")
+            result = subprocess.run(
+                cmd.script, shell=True, executable="/bin/bash", cwd=cmd.cwd
+            )
             job.End = datetime.now()
             job.State = "COMPLETED" if result.returncode == 0 else "FAILED"
         except Empty:
@@ -134,7 +137,7 @@ def server(init_state: Optional[str] = None, port=None):
                 server_state.job_id += 1
                 job_id = server_state.job_id
                 logger.info(f"Received script for Job ID {job_id}")
-                job_queue.put((job_id, command.script))
+                job_queue.put((job_id, command))
 
                 server_state.jobs[job_id] = JobInfo(JobID=job_id, State="PENDING")
 
@@ -191,7 +194,7 @@ class SlurmServer:
 
 def sbatch(parsable: bool = False):
     response = client(
-        SubmitCommand(script="".join([line for line in sys.stdin])),
+        SubmitCommand(script="".join([line for line in sys.stdin]), cwd=Path.cwd()),
         type_adapter=TypeAdapter(SbatchResponse),
     )
     assert isinstance(response, SbatchResponse)
