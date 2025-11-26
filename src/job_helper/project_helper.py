@@ -63,6 +63,10 @@ class ProjectConfig(ArgBase):
         jobs = copy.copy(self.jobs)
         jl = OrderedDict()
         for j in joblist.split(";"):
+            if j not in jobs and j != "START":
+                raise ValueError(
+                    f"Job '{j}' not found in project jobs {tuple(jobs.keys())}."
+                )
             jl[j] = jobs.pop(j, None)
         if not run_following:
             if "START" in jl:

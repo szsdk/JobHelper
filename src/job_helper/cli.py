@@ -154,45 +154,91 @@ def viewer(fn: str):
     app.run()
 
 
+class CLI:
+    debug: bool = False
+
+    def __call__(self, debug=False):
+        """
+        This is the entry point of the job_helper commands.
+        """
+
+        self.debug = debug
+
+        # Check if we have enough arguments
+        if len(sys.argv) < 2:
+            # Let fire handle the help message
+            pass
+        elif sys.argv[1] == "init":
+            jhcfg.cli.log_file = Path("log/cmd.log")
+            jhcfg.cli.serialize_log = True
+            jhcfg.cli.logging_cmd = True
+
+        cmds: dict[str, Any] = {
+            "project": Project,
+            "init": init,
+            "project-result": ProjectRunningResult,
+            "server": server.run,
+            "viewer": viewer,
+            "tools": tools,
+        }
+
+        sys.path.append(os.getcwd())
+        # pre check command to avoid unnecessary import and improve performance
+        if len(sys.argv) >= 2 and sys.argv[1] in cmds:
+            add_logger()
+        elif len(sys.argv) >= 2 and (cmd := sys.argv[1]) in jhcfg.commands:
+            cmds.update({cmd: pydoc.locate(jhcfg.commands[cmd])})
+        else:
+            cmds.update(
+                {
+                    cmd: pydoc.locate(arg_class)
+                    for cmd, arg_class in jhcfg.commands.items()
+                }
+            )
+        return cmds
+
+
+def handle_exception(e, debug=False):
+    if debug:
+        raise e
+
+    # extract location
+    tb = e.__traceback__
+    while tb.tb_next:
+        tb = tb.tb_next
+    filename = tb.tb_frame.f_code.co_filename
+    lineno = tb.tb_lineno
+    funcname = tb.tb_frame.f_code.co_name
+
+    @logger.catch
+    def record_patcher(record):
+        record["name"] = filename
+        record["function"] = funcname
+        record["line"] = lineno
+
+    # logger.error(str(e))
+    with logger.contextualize():
+        logger.patch(record_patcher).error(str(e))
+
+    raise SystemExit(1)
+
+
 def console_main():
     """
     This is the entry point of the job_helper commands.
     """
     import fire
 
-    # Check if we have enough arguments
-    if len(sys.argv) < 2:
-        # Let fire handle the help message
-        pass
-    elif sys.argv[1] == "init":
-        jhcfg.cli.log_file = Path("log/cmd.log")
-        jhcfg.cli.serialize_log = True
-        jhcfg.cli.logging_cmd = True
-
-    cmds: dict[str, Any] = {
-        "project": Project,
-        "init": init,
-        "project-result": ProjectRunningResult,
-        "server": server.run,
-        "viewer": viewer,
-        "tools": tools,
-    }
-
-    sys.path.append(os.getcwd())
-    # pre check command to avoid unnecessary import and improve performance
-    if len(sys.argv) >= 2 and sys.argv[1] in cmds:
-        add_logger()
-    elif len(sys.argv) >= 2 and (cmd := sys.argv[1]) in jhcfg.commands:
-        cmds.update({cmd: pydoc.locate(jhcfg.commands[cmd])})
-    else:
-        cmds.update(
-            {cmd: pydoc.locate(arg_class) for cmd, arg_class in jhcfg.commands.items()}
-        )
-    fire.Fire(cmds)
     log_cmd()
-    sys.path.pop(-1)
-    logger.remove()
-    logger.disable("job_helper")
+    cli = CLI()
+    try:
+        fire.Fire(cli)
+        logger.trace("Cmd success", command=sys.argv, typename="CMD")
+        sys.path.pop(-1)
+        logger.remove()
+        logger.disable("job_helper")
+    except Exception as e:
+        handle_exception(e, cli.debug)
 
 
 tools = Tools()
