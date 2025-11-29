@@ -10,7 +10,7 @@ authors = [
 
 license = "MIT"
 dependencies=[
-    "fire>=0.6.0",
+    "fire>=0.7.0",
     "loguru",
     "pydantic",
     "toml",

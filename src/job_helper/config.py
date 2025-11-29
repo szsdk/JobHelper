@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import socket
+from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Any, ClassVar, Literal, Union
 
@@ -90,11 +91,34 @@ class RepoWatcherConfig(BaseModel):
 
 class ProjectConfig(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
-    log_dir: DirExists = Field(
-        default=Path(""),
+    log_dir: None | Path = Field(
+        default=None,
         validate_default=True,
         description="Log directory. Defaults to the current directory. Providing an absolute path centralizes all log files into a single folder.",
     )
+    unified_log_dir: None | Path = Field(
+        default=None,
+        validate_default=True,
+        description="If set, all job logs will be stored in this directory. This is useful for centralizing logs for easier access and management.",
+    )
+
+    @model_validator(mode="after")
+    def validate_log_dirs(self):
+        if self.log_dir is None and self.unified_log_dir is None:
+            self.log_dir = Path().resolve()
+        if self.unified_log_dir is not None and self.log_dir is not None:
+            raise ValueError(
+                "Only one of log_dir and unified_log_dir can be set. Please choose either to have separate log directories for each job or a unified log directory for all jobs."
+            )
+        self.get_log_dir().mkdir(parents=True, exist_ok=True)
+        return self
+
+    def get_log_dir(self) -> Path:
+        if self.unified_log_dir is not None:
+            return self.unified_log_dir
+        if self.log_dir is not None:
+            return self.log_dir
+        return Path()  # Make type checker happy
 
 
 class SchedulerConfig(BaseModel):
@@ -122,7 +146,7 @@ class JobHelperConfig(BaseModel):
         description="You can add custom commands here, for example: `add=cli.AddOne`. The key is the command name, and the value is the class import path. These commands can then be referenced in a job configuration file, providing a simple and convenient task runner. For more complex scenarios, this approach is not recommended. Instead, specify the class path directly in the job configuration file and consider using a more advanced task runner, such as `justfile` or `poethepoet`.",
     )
     scheduler: SchedulerConfig = Field(
-        default_factory=lambda: SchedulerConfig(), description="scheduler config"
+        default_factory=SchedulerConfig, description="scheduler config"
     )
     repo_watcher: RepoWatcherConfig = Field(
         default_factory=RepoWatcherConfig, description="repo watcher config"
@@ -141,18 +165,27 @@ class JobHelperConfig(BaseModel):
         return v
 
 
-def init_jhcfg():
+@lru_cache()
+def _init_context() -> None | tuple[Path, Any]:
     if "JHCFG" in os.environ:
-        return JobHelperConfig.model_validate(toml.load(os.environ["JHCFG"]))
+        p = Path(os.environ["JHCFG"])
+        return p, toml.load(p)
     for c in [Path().resolve(), *Path().resolve().parents]:
         p = c / "pyproject.toml"
         if p.exists():
             content = toml.load(p).get("tool", {}).get("job_helper", None)
             if content is not None:
-                return JobHelperConfig.model_validate(content)
+                return p, content
         p = c / "jh_config.toml"
         if p.exists():
-            return JobHelperConfig.model_validate(toml.load(p))
+            return p, toml.load(p)
+
+
+def init_jhcfg():
+    if (context := _init_context()) is not None:
+        p, cfg = context
+        logger.info(f"Load job_helper config from {p}")
+        return JobHelperConfig.model_validate(cfg)
     logger.warning(
         "jh_config.toml or JHCFG environment variable or [job_helper] in a pyproject.toml is not found. Use default settings."
     )

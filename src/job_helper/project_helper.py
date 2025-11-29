@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Annotated, Any, Optional, Union
 
 from loguru import logger
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from ._mermaid_backend import flowchart, render_chart
 from .arg import ArgBase, JobArgBase
@@ -29,7 +29,7 @@ class ShellCommand(JobArgBase):
 
 
 class ProjectArgBase(ArgBase):
-    def script(self, project: Project) -> str:
+    def script(self, __project__: Project) -> str:
         raise NotImplementedError
 
 
@@ -343,7 +343,9 @@ class Project(ProjectConfig):
             repo_states=repo_states,
         )
 
-        result_fn = self.jh_config.log_dir / f"{jobs[list(jobs.keys())[0]].job_id}.json"
+        result_fn = (
+            self.jh_config.get_log_dir() / f"{jobs[list(jobs.keys())[0]].job_id}.json"
+        )
         with result_fn.open("w") as fp:
             print(result.model_dump_json(), file=fp)
         logger.info(f"Running project {result_fn}, written to {result_fn}")
