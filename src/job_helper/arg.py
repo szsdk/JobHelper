@@ -100,4 +100,4 @@ class ArgBase(BaseModel):
 class JobArgBase(ArgBase):
     def script(self) -> str:
         cls = type(self)
-        return f"python -m fire {cls.__module__} {cls.__qualname__} from-base64 {self.to_base64()} - run"
+        return f"# {self}\npython -m fire {cls.__module__} {cls.__qualname__} from-base64 {self.to_base64()} - run"
