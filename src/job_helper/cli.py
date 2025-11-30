@@ -13,7 +13,15 @@ from loguru import logger
 
 from . import init_example, server
 from ._utils import dumps_toml
-from .config import CLIConfig, JobHelperConfig, ProjectConfig, SchedulerConfig, jhcfg
+from .config import (
+    CLIConfig,
+    JobHelperConfig,
+    LogDir,
+    LogFile,
+    ProjectConfig,
+    SchedulerConfig,
+    jhcfg,
+)
 from .project_helper import Project, ProjectRunningResult, get_scheduler
 
 
@@ -23,7 +31,7 @@ def compress_log(dt: float = 24) -> None:
     time, `dt` hours (default=24 hours), in the directory, `slurm.log_dir` (default='log/slurm') to a tar.gz file.
     The file name is the current date+time.
     """
-    log_dir = get_scheduler().log_dir
+    log_dir = get_scheduler().get_log_dir()
     # Get the current date+time
     now = datetime.datetime.now()
     now_str = now.strftime("%Y%m%d_%H%M%S")
@@ -99,9 +107,9 @@ def init():
         exit(1)
 
     cfg = JobHelperConfig(
-        project=ProjectConfig(log_dir=Path("log/project")),
+        project=ProjectConfig(log_dir=LogDir(path=Path("log/project"))),
         scheduler=SchedulerConfig(name="slurm", config={"log_dir": "log/slurm"}),
-        cli=CLIConfig(log_file=Path("log/cmd.log")),
+        cli=CLIConfig(log_file=LogFile(path=Path("log/cmd.log"))),
         # commands={"add_one": "cli.AddOne", "tools": "job_helper.cli.tools"},
     )
 
@@ -134,7 +142,7 @@ def add_logger():
 
     if jhcfg.cli.logging_cmd:
         logger.add(
-            jhcfg.cli.log_file,
+            jhcfg.cli.log_file.path,
             serialize=jhcfg.cli.serialize_log,
             level="TRACE",
         )
@@ -169,7 +177,7 @@ class CLI:
             # Let fire handle the help message
             pass
         elif sys.argv[1] == "init":
-            jhcfg.cli.log_file = Path("log/cmd.log")
+            jhcfg.cli.log_file = LogFile(path=Path("log/cmd.log"))
             jhcfg.cli.serialize_log = True
             jhcfg.cli.logging_cmd = True
 

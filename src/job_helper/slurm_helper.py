@@ -89,7 +89,7 @@ class SlurmConfig(JobPreamble):
     job_name: str = ""
     dependency: SlurmDependency = SlurmDependency()
     output: str = Field(
-        default_factory=lambda: f"{SlurmScheduler.model_validate(jhcfg.scheduler.config).log_dir}/%j.out"
+        default_factory=lambda: f"{SlurmScheduler.model_validate(jhcfg.scheduler.config).log_dir.get_path()}/%j.out"
     )
 
     @model_validator(mode="before")
@@ -201,6 +201,6 @@ class SlurmScheduler(Scheduler):
         job.job_id = int(stdout)
         logger.info("Submitted job {} to {}", job.config.job_name, job.job_id)
         if self.save_script:
-            with (self.log_dir / f"{job.job_id}_slurm.sh").open("w") as fp:
+            with (self.get_log_dir() / f"{job.job_id}_slurm.sh").open("w") as fp:
                 print(script, file=fp)
         return self
