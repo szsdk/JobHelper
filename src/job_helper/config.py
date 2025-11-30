@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import socket
 from functools import lru_cache
 from pathlib import Path
@@ -19,68 +18,14 @@ from pydantic import (
 )
 from pydantic.networks import IPvAnyAddress
 
+from ._utils import LogDir, LogFile, init_context
+from .scheduler import Scheduler
+
 
 def dir_exists(v: Union[str, Path]) -> Path:
     v = Path(v)
     v.mkdir(parents=True, exist_ok=True)
     return v
-
-
-@lru_cache()
-def _init_context() -> None | tuple[Path, Any]:
-    if "JHCFG" in os.environ:
-        p = Path(os.environ["JHCFG"])
-        return p, toml.load(p)
-    for c in [Path().resolve(), *Path().resolve().parents]:
-        p = c / "pyproject.toml"
-        if p.exists():
-            content = toml.load(p).get("tool", {}).get("job_helper", None)
-            if content is not None:
-                return p, content
-        p = c / "jh_config.toml"
-        if p.exists():
-            return p, toml.load(p)
-
-
-class LogPath(BaseModel):
-    unified: bool = True
-    path: Path
-
-    @model_validator(mode="before")
-    def factory(cls, values):
-        if isinstance(values, (Path, str)):
-            values = {"path": values}
-        return values
-
-    def get_path(self):
-        if not self.unified:
-            p = self.path
-        else:
-            context = _init_context()
-            if context is None:
-                logger.warning(
-                    "Cannot determine config file path for unified log path."
-                )
-                root_dir = Path("")
-            else:
-                root_dir, _ = context
-                root_dir = root_dir.parent
-            p = root_dir / self.path
-        return p.resolve()
-
-
-class LogDir(LogPath):
-    @model_validator(mode="after")
-    def create_log_dir(self):
-        self.get_path().mkdir(parents=True, exist_ok=True)
-        return self
-
-
-class LogFile(LogPath):
-    @model_validator(mode="after")
-    def create_log_dir(self):
-        self.get_path().parent.mkdir(parents=True, exist_ok=True)
-        return self
 
 
 DirExists = Annotated[DirectoryPath, BeforeValidator(dir_exists)]
@@ -103,9 +48,6 @@ class ServerConfig(BaseModel):
 class CLIConfig(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
     logging_cmd: Annotated[bool, Field(description="log the running command")] = True
-    # log_file: Annotated[Path, Field(description="log file", validate_default=True)] = (
-    #     Path("cmd.log")
-    # )
     log_file: Annotated[
         LogFile, Field(description="log file", validate_default=True)
     ] = LogFile(path=Path("cmd.log"))
@@ -113,12 +55,6 @@ class CLIConfig(BaseModel):
         bool,
         Field(description="serialize log, set to false to get a human-readable log"),
     ] = True
-
-    # @field_validator("log_file", mode="before")
-    # def _validate_log_dir(cls, v: Union[str, Path]) -> Path:
-    #     v = Path(v)
-    #     v.parent.mkdir(parents=True, exist_ok=True)
-    #     return v
 
 
 class RepoWatcherConfig(BaseModel):
@@ -170,9 +106,7 @@ class SchedulerConfig(BaseModel):
     ] = "slurm"
     config: dict[str, Any] = Field(
         default_factory=lambda: dict(
-            dict(
-                shell="/bin/sh", sbatch_cmd="sbatch", sacct_cmd="sacct", log_dir=Path()
-            )
+            shell="/bin/sh", sbatch_cmd="sbatch", sacct_cmd="sacct", log_dir=Path()
         ),
         description="The configuration for the scheduler. It varies for different schedulers.",
     )
@@ -204,9 +138,14 @@ class JobHelperConfig(BaseModel):
                 raise ValueError(f"{k} is a reserved command.")
         return v
 
+    def get_scheduler(self) -> Scheduler:
+        return Scheduler.resolve_subclass(self.scheduler.name).model_validate(
+            self.scheduler.config
+        )
+
 
 def init_jhcfg():
-    if (context := _init_context()) is not None:
+    if (context := init_context()) is not None:
         p, cfg = context
         logger.info(f"Load job_helper config from {p}")
         return JobHelperConfig.model_validate(cfg)

@@ -22,7 +22,7 @@ from .config import (
     SchedulerConfig,
     jhcfg,
 )
-from .project_helper import Project, ProjectRunningResult, get_scheduler
+from .project_helper import Project, ProjectRunningResult
 
 
 def compress_log(dt: float = 24) -> None:
@@ -31,7 +31,7 @@ def compress_log(dt: float = 24) -> None:
     time, `dt` hours (default=24 hours), in the directory, `slurm.log_dir` (default='log/slurm') to a tar.gz file.
     The file name is the current date+time.
     """
-    log_dir = get_scheduler().get_log_dir()
+    log_dir = jhcfg.get_scheduler().get_log_dir()
     # Get the current date+time
     now = datetime.datetime.now()
     now_str = now.strftime("%Y%m%d_%H%M%S")
@@ -108,9 +108,10 @@ def init():
 
     cfg = JobHelperConfig(
         project=ProjectConfig(log_dir=LogDir(path=Path("log/project"))),
-        scheduler=SchedulerConfig(name="slurm", config={"log_dir": "log/slurm"}),
+        scheduler=SchedulerConfig(
+            name="slurm", config={"log_dir": {"path": "log/slurm", "unified": True}}
+        ),
         cli=CLIConfig(log_file=LogFile(path=Path("log/cmd.log"))),
-        # commands={"add_one": "cli.AddOne", "tools": "job_helper.cli.tools"},
     )
 
     if (Path() / ".git").exists():
@@ -224,7 +225,6 @@ def handle_exception(e, debug=False):
         record["function"] = funcname
         record["line"] = lineno
 
-    # logger.error(str(e))
     with logger.contextualize():
         logger.patch(record_patcher).error(str(e))
 

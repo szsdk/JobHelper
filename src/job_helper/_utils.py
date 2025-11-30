@@ -1,5 +1,11 @@
+import os
+from functools import lru_cache
+from pathlib import Path
+from typing import Annotated, Any, ClassVar, Literal, Union
+
 import toml
-from pydantic import BaseModel
+from loguru import logger as logger
+from pydantic import BaseModel, model_validator
 
 
 class TomlDescriptionEncoder(toml.TomlEncoder):
@@ -50,3 +56,60 @@ def dumps_toml(arg: BaseModel, leading_sections: list) -> str:
         arg_dict = {section: arg_dict}
 
     return toml.dumps(arg_dict, encoder=TomlDescriptionEncoder())
+
+
+@lru_cache()
+def init_context() -> None | tuple[Path, Any]:
+    if "JHCFG" in os.environ:
+        p = Path(os.environ["JHCFG"])
+        return p, toml.load(p)
+    for c in [Path().resolve(), *Path().resolve().parents]:
+        p = c / "pyproject.toml"
+        if p.exists():
+            content = toml.load(p).get("tool", {}).get("job_helper", None)
+            if content is not None:
+                return p, content
+        p = c / "jh_config.toml"
+        if p.exists():
+            return p, toml.load(p)
+
+
+class LogPath(BaseModel):
+    unified: bool = True
+    path: Path
+
+    @model_validator(mode="before")
+    def factory(cls, values):
+        if isinstance(values, (Path, str)):
+            values = {"path": values}
+        return values
+
+    def get_path(self):
+        if not self.unified:
+            p = self.path
+        else:
+            context = init_context()
+            if context is None:
+                logger.warning(
+                    "Cannot determine config file path for unified log path."
+                )
+                root_dir = Path("")
+            else:
+                root_dir, _ = context
+                root_dir = root_dir.parent
+            p = root_dir / self.path
+        return p.resolve()
+
+
+class LogDir(LogPath):
+    @model_validator(mode="after")
+    def create_log_dir(self):
+        self.get_path().mkdir(parents=True, exist_ok=True)
+        return self
+
+
+class LogFile(LogPath):
+    @model_validator(mode="after")
+    def create_log_dir(self):
+        self.get_path().parent.mkdir(parents=True, exist_ok=True)
+        return self

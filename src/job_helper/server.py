@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse
 from loguru import logger
 
 from .config import jhcfg
-from .project_helper import ProjectRunningResult, get_scheduler
+from .project_helper import ProjectRunningResult
 
 app = FastAPI()
 
@@ -133,7 +133,7 @@ def flowchart(nodes: dict[str, str], links: dict[tuple[str, str], str], compact:
 async def get_project_jobflow(project_id: int, compact: bool = False):
     prr, job_states = get_job_states(f"log/project/{project_id}.json", get_ttl_hash())
 
-    scheduler = get_scheduler()
+    scheduler = jhcfg.get_scheduler()
     links = {
         (job_a, job_b): link_type
         for job_b, job in prr.config.jobs.items()

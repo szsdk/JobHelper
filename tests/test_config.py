@@ -2,12 +2,12 @@ from pathlib import Path
 
 import pytest
 
-from job_helper.config import LogDir, LogFile, LogPath
+from job_helper._utils import LogDir, LogFile, LogPath
 
 
 def set_monkeypatch_init_context(monkeypatch, tmp_path):
     monkeypatch.setattr(
-        "job_helper.config._init_context", lambda: (tmp_path / "pyproject.toml", None)
+        "job_helper._utils.init_context", lambda: (tmp_path / "pyproject.toml", None)
     )
 
 

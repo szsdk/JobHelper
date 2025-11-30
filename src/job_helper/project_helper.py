@@ -40,18 +40,21 @@ class JobConfig(BaseModel):
     job_preamble: JobPreamble = JobPreamble()
 
 
-def get_scheduler() -> Scheduler:
-    if jhcfg.scheduler.name == "slurm":
-        return SlurmScheduler.model_validate(jhcfg.scheduler.config)
-    try:
-        s = pydoc.locate(jhcfg.scheduler.name)
-        assert (isinstance(s, type)) and (issubclass(s, Scheduler)), (
-            f"Expected 's' to be a subclass of Scheduler, got {type(s)}"
-        )
-        return s.model_validate(jhcfg.scheduler.config)
-    except ImportError:
-        pass
-    raise ValueError(f"Unsupported scheduler: {jhcfg.scheduler.name}")
+# def get_scheduler() -> Scheduler:
+#     return Scheduler.resolve_subclass(jhcfg.scheduler.name).model_validate(
+#         jhcfg.scheduler.config
+#     )
+# if jhcfg.scheduler.name == "slurm":
+#     return SlurmScheduler.model_validate(jhcfg.scheduler.config)
+# try:
+#     s = pydoc.locate(jhcfg.scheduler.name)
+#     assert (isinstance(s, type)) and (issubclass(s, Scheduler)), (
+#         f"Expected 's' to be a subclass of Scheduler, got {type(s)}"
+#     )
+#     return s.model_validate(jhcfg.scheduler.config)
+# except ImportError:
+#     pass
+# raise ValueError(f"Unsupported scheduler: {jhcfg.scheduler.name}")
 
 
 class ProjectConfig(ArgBase):
@@ -97,7 +100,7 @@ class ProjectConfig(ArgBase):
         output_fn="-",
         timeout: float = 5.0,
     ) -> Optional[str]:
-        scheduler = get_scheduler()
+        scheduler = jhcfg.get_scheduler()
         jobs_torun = self._get_job_torun(scheduler, reruns, run_following)
         nodes = {k: "norun" for k in self.jobs.keys() if k not in jobs_torun}
         links = {
@@ -217,7 +220,7 @@ class ProjectRunningResult(ArgBase):
         """
         This function gets the current state of the jobs and generates a Gantt chart from it.
         """
-        sacct_cmd = getattr(get_scheduler(), "sacct_cmd", None)
+        sacct_cmd = getattr(jhcfg.get_scheduler(), "sacct_cmd", None)
         if sacct_cmd is None:
             raise ValueError(
                 "This function is only supported for Slurm (`sacct_cmd` should be given)."
@@ -323,7 +326,7 @@ class Project(ProjectConfig):
         """
         sleep_seconds: controls the sleep time between two jobs
         """
-        scheduler = get_scheduler()
+        scheduler = jhcfg.get_scheduler()
         jobs_torun = self._get_job_torun(scheduler, reruns, run_following)
         repo_states = [] if dry else RepoWatcher.from_jhcfg().repo_states()
         jobs = self._run_jobs(scheduler, {}, jobs_torun, dry, sleep_seconds)
