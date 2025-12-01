@@ -45,6 +45,16 @@ class ProjectConfig(ArgBase):
 
     @classmethod
     def from_config(cls, *cfg_fns: str):
+        """Load multiple project configuration files and merge their job definitions.
+
+        Notes:
+            - Each configuration file is loaded and its jobs are collected.
+            - If two or more configuration files define jobs with the same name, an error is raised.
+            - The resulting instance contains all unique jobs from the provided configurations.
+
+        Args:
+            cfg_fns: One or more paths to project configuration files.
+        """
         projects: dict[str, ProjectConfig] = dict()
         jobs = set()
         for cfg_fn in cfg_fns:
