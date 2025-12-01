@@ -7,7 +7,7 @@ import time
 from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
-from typing import Annotated, Any, Optional, Union
+from typing import Annotated, Any, Optional, Union, cast
 
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
@@ -40,25 +40,29 @@ class JobConfig(BaseModel):
     job_preamble: JobPreamble = JobPreamble()
 
 
-# def get_scheduler() -> Scheduler:
-#     return Scheduler.resolve_subclass(jhcfg.scheduler.name).model_validate(
-#         jhcfg.scheduler.config
-#     )
-# if jhcfg.scheduler.name == "slurm":
-#     return SlurmScheduler.model_validate(jhcfg.scheduler.config)
-# try:
-#     s = pydoc.locate(jhcfg.scheduler.name)
-#     assert (isinstance(s, type)) and (issubclass(s, Scheduler)), (
-#         f"Expected 's' to be a subclass of Scheduler, got {type(s)}"
-#     )
-#     return s.model_validate(jhcfg.scheduler.config)
-# except ImportError:
-#     pass
-# raise ValueError(f"Unsupported scheduler: {jhcfg.scheduler.name}")
-
-
 class ProjectConfig(ArgBase):
     jobs: dict[str, JobConfig]
+
+    @classmethod
+    def from_config(cls, *cfg_fns: str):
+        projects: dict[str, ProjectConfig] = dict()
+        jobs = set()
+        for cfg_fn in cfg_fns:
+            prj = cast(ProjectConfig, super().from_config(cfg_fn))
+            if not jobs.intersection(prj.jobs.keys()):
+                jobs = jobs.union(prj.jobs.keys())
+                projects[cfg_fn] = prj
+            else:
+                for p_fn, p in projects.items():
+                    overlap = jobs.intersection(prj.jobs.keys())
+                    if len(overlap) > 0:
+                        raise ValueError(
+                            f"Job names {overlap} are defined in both {cfg_fn} and {p_fn}."
+                        )
+        all_jobs = dict()
+        for p in projects.values():
+            all_jobs.update(p.jobs)
+        return cls(jobs=all_jobs)
 
     def _get_job_torun(
         self, scheduler, joblist, run_following

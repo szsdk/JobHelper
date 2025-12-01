@@ -19,7 +19,7 @@ def test_init(tmp_path, monkeypatch, capsys, slurm_server):
         cwd=tmp_path,
         check=True,
     )
-    run_jh("jh project from-config project.yaml run --nodry")
+    run_jh("jh project from-config project.yaml - run --nodry")
 
 
 def test_tools(tmp_path, testing_jhcfg):
@@ -42,7 +42,7 @@ git init
 git add .
 git commit -m "init"
 python -m fire cli AddOne -n 2 - run
-jh project from-config project.yaml run --nodry
+jh project from-config project.yaml - run --nodry
 jh project-result from-config log/project/1.json - job_states
 jh project-result from-config log/project/1.json - job_states -o tt.html
 jh project-result from-config log/project/1.json - _job_states
