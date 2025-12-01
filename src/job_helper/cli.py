@@ -163,6 +163,13 @@ def viewer(fn: str):
     app.run()
 
 
+def config():
+    """
+    Get the job_helper configuration
+    """
+    return jhcfg
+
+
 class CLI:
     debug: bool = False
 
@@ -189,6 +196,7 @@ class CLI:
             "server": server.run,
             "viewer": viewer,
             "tools": tools,
+            "config": config,
         }
 
         sys.path.append(os.getcwd())
