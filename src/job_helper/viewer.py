@@ -1,7 +1,6 @@
 import sys
-from typing import Any, Union
+from typing import Any, Union, cast
 
-import yaml
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Vertical
@@ -163,7 +162,7 @@ class JobViewerApp(App):
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
-        yield Header("Job Viewer App")
+        yield Header()
         yield Footer()
 
         # The main content area now uses a grid to hold the three columns
@@ -182,6 +181,7 @@ class JobViewerApp(App):
 
     def on_mount(self) -> None:
         """Called when the app is mounted."""
+        self.title = "Job Viewer App"
         job_list_view = self.query_one("#job-list", ListView)
         for job_name in self.JOB_DATA.keys():
             # Add each job name as a ListItem containing a Label
@@ -212,11 +212,15 @@ class JobViewerApp(App):
         ):
             job_list_view.index += 1
             # Manually trigger the selection change
-            self.selected_job_name = job_list_view.children[job_list_view.index].id
+            self.selected_job_name = job_list_view.children[
+                cast(int, job_list_view.index)
+            ].id
         elif job_list_view.index == len(job_list_view.children) - 1:
             # Wrap around to the beginning if at the end
             job_list_view.index = 0
-            self.selected_job_name = job_list_view.children[job_list_view.index].id
+            self.selected_job_name = job_list_view.children[
+                cast(int, job_list_view.index)
+            ].id
 
     def action_prev_job(self) -> None:
         """Selects the previous job in the list."""
@@ -224,8 +228,12 @@ class JobViewerApp(App):
         if job_list_view.index is not None and job_list_view.index > 0:
             job_list_view.index -= 1
             # Manually trigger the selection change
-            self.selected_job_name = job_list_view.children[job_list_view.index].id
+            self.selected_job_name = job_list_view.children[
+                cast(int, job_list_view.index)
+            ].id
         elif job_list_view.index == 0:
             # Wrap around to the end if at the beginning
             job_list_view.index = len(job_list_view.children) - 1
-            self.selected_job_name = job_list_view.children[job_list_view.index].id
+            self.selected_job_name = job_list_view.children[
+                cast(int, job_list_view.index)
+            ].id

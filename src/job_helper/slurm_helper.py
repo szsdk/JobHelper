@@ -55,7 +55,7 @@ class SlurmDependency(BaseModel):
             yield from getattr(self, k)
 
     def slurm_str(self) -> str:
-        ans = []
+        ans: list[str] = []
         for k in ["after", "afterany", "afternotok", "afterok"]:
             js = getattr(self, k)
             if len(js) > 0:
@@ -107,7 +107,7 @@ class SlurmConfig(JobPreamble):
         return v
 
     def preamble(self):
-        preamble = []
+        preamble: list[str] = []
         for k, v in self:
             if v is None:
                 continue

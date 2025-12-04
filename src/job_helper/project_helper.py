@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Annotated, Any, Optional, Union, cast
 
 from loguru import logger
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, validate_call
 
 from ._mermaid_backend import flowchart, render_chart
 from .arg import ArgBase, JobArgBase
@@ -29,7 +29,7 @@ class ShellCommand(JobArgBase):
 
 
 class ProjectArgBase(ArgBase):
-    def script(self, __project__: Project) -> str:
+    def script(self, project: Project) -> str:
         raise NotImplementedError
 
 
@@ -44,7 +44,8 @@ class ProjectConfig(ArgBase):
     jobs: dict[str, JobConfig]
 
     @classmethod
-    def from_config(cls, *cfg_fns: str):
+    @validate_call
+    def from_config(cls, *paths: Union[str, Path]):
         """Load multiple project configuration files and merge their job definitions.
 
         Notes:
@@ -53,15 +54,15 @@ class ProjectConfig(ArgBase):
             - The resulting instance contains all unique jobs from the provided configurations.
 
         Args:
-            cfg_fns: One or more paths to project configuration files.
+            paths: One or more paths to project configuration files.
         """
         projects: dict[str, ProjectConfig] = dict()
         jobs = set()
-        for cfg_fn in cfg_fns:
+        for cfg_fn in paths:
             prj = cast(ProjectConfig, super().from_config(cfg_fn))
             if not jobs.intersection(prj.jobs.keys()):
                 jobs = jobs.union(prj.jobs.keys())
-                projects[cfg_fn] = prj
+                projects[str(cfg_fn)] = prj
             else:
                 for p_fn, p in projects.items():
                     overlap = jobs.intersection(prj.jobs.keys())
@@ -130,7 +131,7 @@ class JobComboArg(ProjectArgBase):
     jobs: list[Union[str, ShellCommand, JobConfig]]
 
     def script(self, project: Project) -> str:
-        cmds = []
+        cmds: list[str] = []
         for job in self.jobs:
             if isinstance(job, ShellCommand):
                 cmds.append(job.sh)

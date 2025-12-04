@@ -44,7 +44,7 @@ def get_ttl_hash(seconds=2) -> int:
 async def get_project_result(project_id: int, compact: bool = False):
     prr, job_states = get_job_states(f"log/project/{project_id}.json", get_ttl_hash())
     s = generate_mermaid_gantt_chart(job_states, compact=compact)
-    clicks = []
+    clicks: list[str] = []
     for job, state in job_states.items():
         clicks.append(f'    click {job} call copyTextToClipboard("{state.JobID}")')
 
@@ -141,7 +141,7 @@ async def get_project_jobflow(project_id: int, compact: bool = False):
         for job_a in getattr(scheduler.dependency(job.job_preamble), link_type)
     }
     nodes = dict()
-    clicks = []
+    clicks: list[str] = []
     for job, state in job_states.items():
         if state.State == "COMPLETED":
             nodes[job] = "completed"

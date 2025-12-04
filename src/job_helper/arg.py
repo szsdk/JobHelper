@@ -73,7 +73,10 @@ class ArgBase(BaseModel):
 
     @classmethod
     @validate_call
-    def from_config(cls, path: Union[str, Path]):
+    def from_config(cls, *paths: Union[str, Path]):
+        if len(paths) != 1:
+            raise ValueError("Only one config file is supported.")
+        path = paths[0]
         path_split = str(path).split("::")
         if len(path_split) == 2:
             path, sn = path_split
