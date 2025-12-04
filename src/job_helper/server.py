@@ -42,7 +42,9 @@ def get_ttl_hash(seconds=2) -> int:
 
 @app.get("/project_result/gantt", response_class=HTMLResponse)
 async def get_project_result(project_id: int, compact: bool = False):
-    prr, job_states = get_job_states(f"log/project/{project_id}.json", get_ttl_hash())
+    __prr__, job_states = get_job_states(
+        f"log/project/{project_id}.json", get_ttl_hash()
+    )
     s = generate_mermaid_gantt_chart(job_states, compact=compact)
     clicks: list[str] = []
     for job, state in job_states.items():

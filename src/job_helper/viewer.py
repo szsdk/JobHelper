@@ -1,4 +1,3 @@
-import sys
 from typing import Any, Union, cast
 
 from textual.app import App, ComposeResult

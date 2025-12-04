@@ -17,8 +17,8 @@ from .arg import ArgBase, JobArgBase
 from .config import ProjectConfig as JHProjectConfig
 from .config import jhcfg
 from .repo_watcher import RepoState, RepoWatcher
-from .scheduler import JobPreamble, Scheduler
-from .slurm_helper import JobInfo, SlurmScheduler, parse_sacct_output
+from .scheduler import JobPreamble
+from .slurm_helper import JobInfo, parse_sacct_output
 
 
 class ShellCommand(JobArgBase):

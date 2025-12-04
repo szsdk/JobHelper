@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Annotated, Any, Iterable
 
 from loguru import logger as logger
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from ._utils import LogDir
 
