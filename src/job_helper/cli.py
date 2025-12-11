@@ -111,7 +111,11 @@ def init():
         scheduler=SchedulerConfig(
             name="slurm", config={"log_dir": {"path": "log/slurm", "unified": True}}
         ),
-        cli=CLIConfig(log_file=LogFile(path=Path("log/cmd.log"))),
+        cli=CLIConfig(
+            log_file=LogFile(path=Path("log/cmd.log")),
+            log_rotation="10 MB",
+            log_compression="zip",
+        ),
     )
 
     if (Path() / ".git").exists():
@@ -185,13 +189,12 @@ class CLI:
         # Check if we have enough arguments
         if len(sys.argv) < 2:
             # Let fire handle the help message
-            pass
+            print("?")
+            # pass
         elif sys.argv[1] == "init":
             jhcfg.cli.log_file = LogFile(path=Path("log/cmd.log"))
             jhcfg.cli.serialize_log = True
             jhcfg.cli.logging_cmd = True
-            jhcfg.cli.log_rotation = "10 MB"
-            jhcfg.cli.log_compression = "zip"
 
         cmds: dict[str, Any] = {
             "project": Project,

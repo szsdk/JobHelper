@@ -51,8 +51,10 @@ class CLIConfig(BaseModel):
     log_file: Annotated[
         LogFile, Field(description="log file", validate_default=True)
     ] = LogFile(path=Path("cmd.log"))
-    log_rotation: str | None = None
-    log_compression: str | None = None
+    log_rotation: Annotated[str | None, Field(description="log rotation")] = None
+    log_compression: Annotated[str | None, Field(description="compression method")] = (
+        None
+    )
     serialize_log: Annotated[
         bool,
         Field(description="serialize log, set to false to get a human-readable log"),
@@ -128,7 +130,10 @@ class JobHelperConfig(BaseModel):
         default_factory=RepoWatcherConfig, description="repo watcher config"
     )
     project: ProjectConfig = Field(default_factory=ProjectConfig)
-    cli: CLIConfig = Field(default_factory=CLIConfig, description="cli config")
+    cli: CLIConfig = Field(
+        default_factory=CLIConfig,
+        description="cli config,  Check https://loguru.readthedocs.io/en/stable/api/logger.html for details about log_rotation, log_compression, serialize_log",
+    )
     server: ServerConfig = Field(
         default_factory=ServerConfig, description="config for web server"
     )
