@@ -143,7 +143,9 @@ def add_logger():
 
     if jhcfg.cli.logging_cmd:
         logger.add(
-            jhcfg.cli.log_file.path,
+            jhcfg.cli.log_file.get_path(),
+            rotation=jhcfg.cli.log_rotation,
+            compression=jhcfg.cli.log_compression,
             serialize=jhcfg.cli.serialize_log,
             level="TRACE",
         )
@@ -188,6 +190,8 @@ class CLI:
             jhcfg.cli.log_file = LogFile(path=Path("log/cmd.log"))
             jhcfg.cli.serialize_log = True
             jhcfg.cli.logging_cmd = True
+            jhcfg.cli.log_rotation = "10 MB"
+            jhcfg.cli.log_compression = "zip"
 
         cmds: dict[str, Any] = {
             "project": Project,
@@ -249,7 +253,9 @@ def console_main():
     cli = CLI()
     try:
         fire.Fire(cli)
-        logger.trace("Cmd success", command=sys.argv, typename="CMD")
+        logger.trace(
+            "Cmd success", command=sys.argv, typename="CMD", dir=Path().resolve()
+        )
         sys.path.pop(-1)
         logger.remove()
         logger.disable("job_helper")

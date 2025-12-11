@@ -51,6 +51,8 @@ class CLIConfig(BaseModel):
     log_file: Annotated[
         LogFile, Field(description="log file", validate_default=True)
     ] = LogFile(path=Path("cmd.log"))
+    log_rotation: str | None = None
+    log_compression: str | None = None
     serialize_log: Annotated[
         bool,
         Field(description="serialize log, set to false to get a human-readable log"),
