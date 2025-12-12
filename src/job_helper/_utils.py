@@ -1,5 +1,5 @@
 import os
-from functools import lru_cache
+from functools import cached_property, lru_cache
 from pathlib import Path
 from typing import Annotated, Any, ClassVar, Literal, Union
 
@@ -84,32 +84,29 @@ class LogPath(BaseModel):
             values = {"path": values}
         return values
 
-    def get_path(self):
+    @cached_property
+    def resolved_path(self):
         if not self.unified:
-            p = self.path
+            return self.path.resolve()
+        context = init_context()
+        if context is None:
+            logger.warning("Cannot determine config file path for unified log path.")
+            root_dir = Path("")
         else:
-            context = init_context()
-            if context is None:
-                logger.warning(
-                    "Cannot determine config file path for unified log path."
-                )
-                root_dir = Path("")
-            else:
-                root_dir, _ = context
-                root_dir = root_dir.parent
-            p = root_dir / self.path
-        return p.resolve()
+            root_dir, _ = context
+            root_dir = root_dir.parent
+        return (root_dir / self.path).resolve()
 
 
 class LogDir(LogPath):
     @model_validator(mode="after")
     def create_log_dir(self):
-        self.get_path().mkdir(parents=True, exist_ok=True)
+        self.resolved_path.mkdir(parents=True, exist_ok=True)
         return self
 
 
 class LogFile(LogPath):
     @model_validator(mode="after")
     def create_log_dir(self):
-        self.get_path().parent.mkdir(parents=True, exist_ok=True)
+        self.resolved_path.parent.mkdir(parents=True, exist_ok=True)
         return self

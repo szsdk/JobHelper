@@ -89,7 +89,7 @@ class SlurmConfig(JobPreamble):
     job_name: str = ""
     dependency: SlurmDependency = SlurmDependency()
     output: str = Field(
-        default_factory=lambda: f"{SlurmScheduler.model_validate(jhcfg.scheduler.config).log_dir.get_path()}/%j.out"
+        default_factory=lambda: f"{SlurmScheduler.model_validate(jhcfg.scheduler.config).log_dir.resolved_path}/%j.out"
     )
 
     @model_validator(mode="before")

@@ -98,7 +98,7 @@ class ProjectConfig(BaseModel):
     )
 
     def get_log_dir(self) -> Path:
-        return self.log_dir.get_path()
+        return self.log_dir.resolved_path
 
 
 class SchedulerConfig(BaseModel):

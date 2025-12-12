@@ -12,7 +12,7 @@ class Scheduler(BaseModel):
     log_dir: Annotated[LogDir, Field(validate_default=True)] = LogDir(path=Path(""))
 
     def get_log_dir(self) -> Path:
-        return self.log_dir.get_path()
+        return self.log_dir.resolved_path
 
     def submit(self, config, job_script, jobs, jobname: str, dry: bool) -> Any: ...
     def dependency(self, config) -> Iterable[int]: ...

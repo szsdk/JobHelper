@@ -147,7 +147,7 @@ def add_logger():
 
     if jhcfg.cli.logging_cmd:
         logger.add(
-            jhcfg.cli.log_file.get_path(),
+            jhcfg.cli.log_file.resolved_path,
             rotation=jhcfg.cli.log_rotation,
             compression=jhcfg.cli.log_compression,
             serialize=jhcfg.cli.serialize_log,
