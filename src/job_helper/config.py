@@ -5,7 +5,6 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Any, ClassVar, Literal, Union
 
-import toml
 from loguru import logger as logger
 from pydantic import (
     BaseModel,
@@ -18,7 +17,7 @@ from pydantic import (
 )
 from pydantic.networks import IPvAnyAddress
 
-from ._utils import LogDir, LogFile, init_context
+from ._utils import LogDir, LogFile, dumps_toml, init_context
 from .scheduler import Scheduler
 
 
@@ -137,6 +136,9 @@ class JobHelperConfig(BaseModel):
     server: ServerConfig = Field(
         default_factory=ServerConfig, description="config for web server"
     )
+    source_file: Annotated[
+        Path | None, Field(description="Path of the config file", exclude=True)
+    ] = None
 
     @field_validator("commands", mode="after")
     def not_contains_reserved_commands(cls, v: dict[str, str]) -> dict[str, str]:
@@ -150,11 +152,26 @@ class JobHelperConfig(BaseModel):
             self.scheduler.config
         )
 
+    def to_toml(self, *leading_sections: str) -> str:
+        """Convert the configuration to TOML format string.
+
+        Useful for quickly creating an inherited config file. A common usage is:
+        `jh config - to-toml > jh_config.toml`
+
+        Args:
+            *leading_sections: Section names to appear first in the TOML output.
+
+        Returns:
+            A TOML-formatted string representation of the configuration.
+        """
+        return dumps_toml(self, list(leading_sections))
+
 
 def init_jhcfg():
     if (context := init_context()) is not None:
         p, cfg = context
         logger.info(f"Load job_helper config from {p}")
+        cfg["source_file"] = p
         return JobHelperConfig.model_validate(cfg)
     logger.warning(
         "jh_config.toml or JHCFG environment variable or [job_helper] in a pyproject.toml is not found. Use default settings."

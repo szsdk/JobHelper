@@ -90,7 +90,6 @@ class LogPath(BaseModel):
             return self.path.resolve()
         context = init_context()
         if context is None:
-            logger.warning("Cannot determine config file path for unified log path.")
             root_dir = Path("")
         else:
             root_dir, _ = context
