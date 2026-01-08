@@ -7,10 +7,10 @@ from unittest.mock import patch
 
 import pytest
 import toml
-from job_helper import jhcfg
-from job_helper.cli import JobHelperConfig, console_main
 from pydantic import BaseModel
 
+from job_helper import jhcfg
+from job_helper.cli import JobHelperConfig, console_main
 from tests.fake_slurm import ServerState, SlurmServer
 
 
@@ -45,10 +45,6 @@ def testing_jhcfg(tmp_path):
             "name": "tests.fake_slurm.FakeSlurmScheduler",
             "config": dict(log_dir=tmp_path / "log" / "job"),
         },
-        commands=dict(
-            generate_data="tests.example_cmds.GenerateDataArg",
-            sum_data="tests.example_cmds.SumDataArg",
-        ),
     ):
         yield
 

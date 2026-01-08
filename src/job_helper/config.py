@@ -118,10 +118,6 @@ class SchedulerConfig(BaseModel):
 class JobHelperConfig(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
     _reserved_commands: ClassVar[list[str]] = ["init", "project"]
-    commands: dict[str, str] = Field(
-        default_factory=dict,
-        description="You can add custom commands here, for example: `add=cli.AddOne`. The key is the command name, and the value is the class import path. These commands can then be referenced in a job configuration file, providing a simple and convenient task runner. For more complex scenarios, this approach is not recommended. Instead, specify the class path directly in the job configuration file and consider using a more advanced task runner, such as `justfile` or `poethepoet`.",
-    )
     scheduler: SchedulerConfig = Field(
         default_factory=SchedulerConfig, description="scheduler config"
     )
@@ -139,13 +135,6 @@ class JobHelperConfig(BaseModel):
     source_file: Annotated[
         Path | None, Field(description="Path of the config file", exclude=True)
     ] = None
-
-    @field_validator("commands", mode="after")
-    def not_contains_reserved_commands(cls, v: dict[str, str]) -> dict[str, str]:
-        for k in cls._reserved_commands:
-            if k in v:
-                raise ValueError(f"{k} is a reserved command.")
-        return v
 
     def get_scheduler(self) -> Scheduler:
         return Scheduler.resolve_subclass(self.scheduler.name).model_validate(

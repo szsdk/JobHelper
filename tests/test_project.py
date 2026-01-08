@@ -16,7 +16,7 @@ def project_cfg(tmpdir_factory):
     return f"""
 jobs:
   generate_data:
-    command: generate_data
+    command: tests.example_cmds.GenerateDataArg
     config:
       count: 100
       output_fn: {data_fn}
@@ -39,10 +39,10 @@ jobs:
         afternotok:
           - START
   sum_data:
-    command: sum_data
+    command: tests.example_cmds.SumDataArg
     config:
       input_fn: {data_fn}
-      output_fn: {dir / 'sum.txt'}
+      output_fn: {dir / "sum.txt"}
     job_preamble:
       dependency:
         - job_1

@@ -151,20 +151,13 @@ class JobComboArg(ProjectArgBase):
 
 
 class CommandsManager:
-    def __init__(self, cmd_map: dict[str, str]):
+    def __init__(self):
         self.commands = {"job_combo": JobComboArg, "shell": ShellCommand}
-        for cmd in self.commands:
-            if cmd in cmd_map:
-                raise ValueError(f"{cmd} is reserved.")
-        self._cmd_map = copy.deepcopy(cmd_map)
 
     def __getitem__(self, item) -> Union[type[JobArgBase], type[ProjectArgBase]]:
         if item in self.commands:
             return self.commands[item]
-        if item in self._cmd_map:
-            cmd = pydoc.locate(self._cmd_map[item])
-        else:
-            cmd = pydoc.locate(item)
+        cmd = pydoc.locate(item)
 
         if isinstance(cmd, type) and (
             issubclass(cmd, JobArgBase) or issubclass(cmd, ProjectArgBase)
@@ -173,10 +166,8 @@ class CommandsManager:
             return cmd
         raise KeyError(f"{item} not found in commands")
 
-    def __eq__(self, value, /) -> bool:
-        if not isinstance(value, CommandsManager):
-            return False
-        return self._cmd_map == value._cmd_map
+    def __eq__(self, __value__, /) -> bool:
+        return True
 
 
 def generate_mermaid_gantt_chart(jobs):
@@ -288,7 +279,7 @@ class ProjectRunningResult(ArgBase):
 class Project(ProjectConfig):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     commands: CommandsManager = Field(
-        default_factory=lambda: CommandsManager(jhcfg.commands),
+        default_factory=CommandsManager,
         validate_default=True,
         exclude=True,
     )

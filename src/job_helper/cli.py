@@ -112,6 +112,8 @@ def init():
             name="slurm", config={"log_dir": {"path": "log/slurm", "unified": True}}
         ),
         cli=CLIConfig(
+            serialize_log=True,
+            logging_cmd=True,
             log_file=LogFile(path=Path("log/cmd.log")),
             log_rotation="10 MB",
             log_compression="zip",
@@ -176,50 +178,29 @@ def config():
     return jhcfg
 
 
-class CLI:
-    debug: bool = False
+def cli_main():
+    """
+    This is the entry point of the job_helper commands.
+    """
 
-    def __call__(self, debug=False):
-        """
-        This is the entry point of the job_helper commands.
-        """
+    import fire
 
-        self.debug = debug
+    cmds: dict[str, Any] = {
+        "project": Project,
+        "init": init,
+        "project-result": ProjectRunningResult,
+        "server": server.run,
+        "viewer": viewer,
+        "tools": tools,
+        "config": config,
+    }
 
-        # Check if we have enough arguments
-        if len(sys.argv) < 2:
-            # Let fire handle the help message
-            print("?")
-            # pass
-        elif sys.argv[1] == "init":
-            jhcfg.cli.log_file = LogFile(path=Path("log/cmd.log"))
-            jhcfg.cli.serialize_log = True
-            jhcfg.cli.logging_cmd = True
-
-        cmds: dict[str, Any] = {
-            "project": Project,
-            "init": init,
-            "project-result": ProjectRunningResult,
-            "server": server.run,
-            "viewer": viewer,
-            "tools": tools,
-            "config": config,
-        }
-
-        sys.path.append(os.getcwd())
-        # pre check command to avoid unnecessary import and improve performance
-        if len(sys.argv) >= 2 and sys.argv[1] in cmds:
-            add_logger()
-        elif len(sys.argv) >= 2 and (cmd := sys.argv[1]) in jhcfg.commands:
-            cmds.update({cmd: pydoc.locate(jhcfg.commands[cmd])})
-        else:
-            cmds.update(
-                {
-                    cmd: pydoc.locate(arg_class)
-                    for cmd, arg_class in jhcfg.commands.items()
-                }
-            )
-        return cmds
+    sys.path.append(os.getcwd())
+    if len(sys.argv) >= 2:
+        add_logger()
+    fire.Fire(cmds)
+    sys.path.pop(-1)
+    # return cmds
 
 
 def handle_exception(e, debug=False):
@@ -253,17 +234,34 @@ def console_main():
     import fire
 
     log_cmd()
-    cli = CLI()
+    if len(sys.argv) >= 2 and sys.argv[1] == "--debug":
+        debug = True
+        sys.argv.pop(1)
+    else:
+        debug = False
+    cmds: dict[str, Any] = {
+        "project": Project,
+        "init": init,
+        "project-result": ProjectRunningResult,
+        "server": server.run,
+        "viewer": viewer,
+        "tools": tools,
+        "config": config,
+    }
+
     try:
-        fire.Fire(cli)
+        sys.path.append(os.getcwd())
+        if len(sys.argv) >= 2:
+            add_logger()
+        fire.Fire(cmds)
+        sys.path.pop(-1)
         logger.trace(
             "Cmd success", command=sys.argv, typename="CMD", dir=Path().resolve()
         )
-        sys.path.pop(-1)
         logger.remove()
         logger.disable("job_helper")
     except Exception as e:
-        handle_exception(e, cli.debug)
+        handle_exception(e, debug)
 
 
 tools = Tools()
