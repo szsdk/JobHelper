@@ -3,7 +3,7 @@ from __future__ import annotations
 import socket
 from functools import lru_cache
 from pathlib import Path
-from typing import Annotated, Any, ClassVar, Literal, Union
+from typing import Annotated, Any, ClassVar, Literal, Optional, Union
 
 from loguru import logger as logger
 from pydantic import (
@@ -50,10 +50,10 @@ class CLIConfig(BaseModel):
     log_file: Annotated[
         LogFile, Field(description="log file", validate_default=True)
     ] = LogFile(path=Path("cmd.log"))
-    log_rotation: Annotated[str | None, Field(description="log rotation")] = None
-    log_compression: Annotated[str | None, Field(description="compression method")] = (
-        None
-    )
+    log_rotation: Annotated[Optional[str], Field(description="log rotation")] = None
+    log_compression: Annotated[
+        Optional[str], Field(description="compression method")
+    ] = None
     serialize_log: Annotated[
         bool,
         Field(description="serialize log, set to false to get a human-readable log"),
@@ -133,7 +133,7 @@ class JobHelperConfig(BaseModel):
         default_factory=ServerConfig, description="config for web server"
     )
     source_file: Annotated[
-        Path | None, Field(description="Path of the config file", exclude=True)
+        Optional[Path], Field(description="Path of the config file", exclude=True)
     ] = None
 
     def get_scheduler(self) -> Scheduler:

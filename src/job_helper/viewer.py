@@ -1,4 +1,4 @@
-from typing import Any, Union, cast
+from typing import Any, Optional, Union, cast
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -97,7 +97,7 @@ class JobViewerApp(App):
         super().__init__()
         self.JOB_DATA = job_data
 
-    selected_job_name: var[str | None] = var(None)
+    selected_job_name = var(None)
 
     def add_node_from_dict(self, node: TreeNode, data: Union[dict, list, Any]) -> None:
         """Recursively adds dictionary/list items to a Tree node."""
@@ -118,7 +118,7 @@ class JobViewerApp(App):
         else:
             node.add(str(data))
 
-    def watch_selected_job_name(self, new_job_name: str | None) -> None:
+    def watch_selected_job_name(self, new_job_name: Optional[str]) -> None:
         """Called when selected_job_name changes."""
         param_tree = self.query_one("#job-parameters", Tree)
         preamble_tree = self.query_one("#job-preamble", Tree)

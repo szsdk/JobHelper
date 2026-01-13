@@ -1,7 +1,7 @@
 import os
 from functools import cached_property, lru_cache
 from pathlib import Path
-from typing import Annotated, Any, ClassVar, Literal, Union
+from typing import Any, Optional
 
 import toml
 from loguru import logger as logger
@@ -59,7 +59,7 @@ def dumps_toml(arg: BaseModel, leading_sections: list) -> str:
 
 
 @lru_cache()
-def init_context() -> None | tuple[Path, Any]:
+def init_context() -> Optional[tuple[Path, Any]]:
     if "JHCFG" in os.environ:
         p = Path(os.environ["JHCFG"])
         return p, toml.load(p)
