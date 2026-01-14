@@ -91,7 +91,7 @@ class RepoWatcherConfig(BaseModel):
 class ProjectConfig(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
     log_dir: LogDir = Field(
-        default=LogDir(path=Path("log/project")),
+        default=LogDir(path=Path()),
         validate_default=True,
         description="Log directory. Defaults to the current directory. Providing an absolute path centralizes all log files into a single folder.",
     )
