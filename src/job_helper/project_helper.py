@@ -4,7 +4,7 @@ import copy
 import pydoc
 import subprocess
 import time
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict, deque
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any, Optional, Union, cast
@@ -79,34 +79,46 @@ class ProjectConfig(ArgBase):
         self, scheduler, joblist, run_following
     ) -> OrderedDict[str, JobConfig]:
         jobs = copy.copy(self.jobs)
-        jl = OrderedDict()
+
+        # Parse initial job list
+        requested = []
         for j in joblist.split(";"):
             if j not in jobs and j != "START":
                 raise ValueError(
                     f"Job '{j}' not found in project jobs {tuple(jobs.keys())}."
                 )
-            jl[j] = jobs.pop(j, None)
+            requested.append(j)
+
+        # If we don't run following jobs, just return requested ones
         if not run_following:
-            if "START" in jl:
-                del jl["START"]
-            return jl
-        while True:
-            changed = False
-            for jobname, job in jobs.items():
-                if job.job_preamble is None:
-                    continue
-                for d in scheduler.dependency(job.job_preamble):
-                    if d in jl:
-                        jl[jobname] = jobs.pop(jobname)
-                        changed = True
-                        break
-                if changed:
-                    break
-            if not changed:
-                break
-        if "START" in jl:
-            del jl["START"]
-        return jl
+            return OrderedDict((j, jobs[j]) for j in requested if j != "START")
+
+        # Build reverse dependency graph: dep -> [jobs depending on dep]
+        reverse_deps = defaultdict(list)
+        for name, job in jobs.items():
+            if job.job_preamble is None:
+                continue
+            for d in scheduler.dependency(job.job_preamble):
+                reverse_deps[d].append(name)
+
+        # BFS from requested jobs
+        to_run = OrderedDict()
+        queue = deque(requested)
+        seen = set(queue)
+
+        while queue:
+            current = queue.popleft()
+            to_run[current] = jobs.get(current)
+
+            for dependent in reverse_deps.get(current, ()):
+                if dependent not in seen:
+                    seen.add(dependent)
+                    queue.append(dependent)
+
+        # Remove START if present
+        to_run.pop("START", None)
+
+        return to_run
 
     def jobflow(
         self,
