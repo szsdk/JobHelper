@@ -30,9 +30,7 @@ jh = "job_helper:cli.console_main"
 
 [tool.pytest.ini_options]
 log_cli = true
-# False: no test names
 log_cli_level = "INFO"
-# log_cli_level = CRITICAL
 # INFO: more information
 required_plugins = ["pytest-html", "pytest-cov"]
 addopts = "--cov job_helper --cov-config=pyproject.toml --cov-report html --cov-report term "

@@ -150,9 +150,52 @@ class JobComboArg(ProjectArgBase):
         return "\n".join(cmds)
 
 
+class JobParallelArg(JobArgBase):
+    """Run multiple JobArgBase jobs simultaneously using srun with background execution.
+
+    This class takes JobConfig objects and runs them in parallel,
+    similar to the SLURM pattern:
+        srun --exact -n 1 <job1_script> &
+        srun --exact -n 1 <job2_script> &
+        wait
+    """
+
+    jobs: list[JobConfig] = Field(description="List of JobConfig to run in parallel")
+    ntasks_per_job: int = Field(default=1, description="Number of tasks per job")
+
+    def script(self) -> str:
+        from .project_helper import CommandsManager
+
+        commands = CommandsManager()
+        cmds: list[str] = []
+
+        for job_config in self.jobs:
+            # Instantiate the job argument from the config
+            job_arg = commands[job_config.command].model_validate(job_config.config)
+            # Ensure it's a JobArgBase instance
+            assert isinstance(job_arg, JobArgBase), (
+                f"Job command '{job_config.command}' must be a JobArgBase subclass, "
+                f"got {type(job_arg).__name__}"
+            )
+            # Get the script for this job
+            job_script = job_arg.script()
+            # Wrap in srun with background execution
+            cmds.append(
+                f"srun --exact -n {self.ntasks_per_job} bash -c '{job_script}' &"
+            )
+
+        # Add wait to ensure all background jobs complete
+        cmds.append("wait")
+        return "\n".join(cmds)
+
+
 class CommandsManager:
     def __init__(self):
-        self.commands = {"job_combo": JobComboArg, "shell": ShellCommand}
+        self.commands = {
+            "job_combo": JobComboArg,
+            "job_parallel": JobParallelArg,
+            "shell": ShellCommand,
+        }
 
     def __getitem__(self, item) -> Union[type[JobArgBase], type[ProjectArgBase]]:
         if item in self.commands:
