@@ -162,7 +162,7 @@ class JobComboArg(ProjectArgBase):
         return "\n".join(cmds)
 
 
-class JobParallelArg(JobArgBase):
+class JobParallelArg(ProjectArgBase):
     """Run multiple JobArgBase jobs simultaneously using srun with background execution.
 
     This class takes JobConfig objects and runs them in parallel,
@@ -172,10 +172,12 @@ class JobParallelArg(JobArgBase):
         wait
     """
 
-    jobs: list[JobConfig] = Field(description="List of JobConfig to run in parallel")
+    jobs: list[JobConfig | str] = Field(
+        description="List of JobConfig to run in parallel"
+    )
     ntasks_per_job: int = Field(default=1, description="Number of tasks per job")
 
-    def script(self) -> str:
+    def script(self, project: Project) -> str:
         from .project_helper import CommandsManager
 
         commands = CommandsManager()
@@ -183,17 +185,19 @@ class JobParallelArg(JobArgBase):
 
         for job_config in self.jobs:
             # Instantiate the job argument from the config
-            job_arg = commands[job_config.command].model_validate(job_config.config)
+            if isinstance(job_config, str):
+                jc = project.jobs[job_config]
+                job_arg = commands[jc.command].model_validate(jc.config)
+            else:
+                job_arg = commands[job_config.command].model_validate(job_config.config)
             # Ensure it's a JobArgBase instance
-            assert isinstance(job_arg, JobArgBase), (
-                f"Job command '{job_config.command}' must be a JobArgBase subclass, "
-                f"got {type(job_arg).__name__}"
-            )
+            assert isinstance(job_arg, JobArgBase), type(job_arg)
             # Get the script for this job
-            job_script = job_arg.script()
+            # job_script = job_arg.script()
             # Wrap in srun with background execution
+            cmds.append(f"# {job_arg}")
             cmds.append(
-                f"srun --exact -n {self.ntasks_per_job} bash -c '{job_script}' &"
+                f"srun --exact -n {self.ntasks_per_job} python -m fire {job_arg.__class__.__module__} {job_arg.__class__.__qualname__} from-base64 {job_arg.to_base64()} - run &"
             )
 
         # Add wait to ensure all background jobs complete

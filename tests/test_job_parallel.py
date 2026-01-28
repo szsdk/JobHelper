@@ -2,12 +2,13 @@
 
 import pytest
 
-from job_helper.project_helper import JobConfig, JobParallelArg
+from job_helper.project_helper import JobConfig, JobParallelArg, Project
 from job_helper.scheduler import JobPreamble
 
 
 def test_job_parallel_simple():
     """Test JobParallelArg with simple JobConfig."""
+    project = Project(jobs={})
     parallel_job = JobParallelArg(
         jobs=[
             JobConfig(
@@ -29,11 +30,11 @@ def test_job_parallel_simple():
         ntasks_per_job=1,
     )
 
-    script = parallel_job.script()
+    script = parallel_job.script(project)
 
     # Check that the script contains the expected elements
     assert "srun --exact -n 1" in script
-    assert "bash -c" in script
+    assert "python -m fire" in script
     assert script.count("&") == 3  # Three background jobs
     assert "wait" in script
     assert "echo 'Job 1'" in script
@@ -43,6 +44,7 @@ def test_job_parallel_simple():
 
 def test_job_parallel_custom_ntasks():
     """Test JobParallelArg with custom ntasks_per_job."""
+    project = Project(jobs={})
     parallel_job = JobParallelArg(
         jobs=[
             JobConfig(
@@ -54,13 +56,14 @@ def test_job_parallel_custom_ntasks():
         ntasks_per_job=4,
     )
 
-    script = parallel_job.script()
+    script = parallel_job.script(project)
     assert "srun --exact -n 4" in script
     assert "wait" in script
 
 
 def test_job_parallel_multiple_jobs():
     """Test JobParallelArg with multiple different jobs."""
+    project = Project(jobs={})
     jobs = [
         JobConfig(
             command="shell",
@@ -84,7 +87,7 @@ def test_job_parallel_multiple_jobs():
         ntasks_per_job=1,
     )
 
-    script = parallel_job.script()
+    script = parallel_job.script(project)
 
     # Should have three background jobs
     assert script.count("srun --exact -n 1") == 3
@@ -97,6 +100,7 @@ def test_job_parallel_multiple_jobs():
 
 def test_job_parallel_invalid_command():
     """Test JobParallelArg raises error for non-JobArgBase command."""
+    project = Project(jobs={})
     # Try to use a command that's not a JobArgBase
     with pytest.raises(KeyError):
         parallel_job = JobParallelArg(
@@ -109,4 +113,4 @@ def test_job_parallel_invalid_command():
             ],
             ntasks_per_job=1,
         )
-        parallel_job.script()
+        parallel_job.script(project)
