@@ -53,8 +53,13 @@ jh project from-config project.yaml - run --nodry
 ### Scale up Existing Scripts with JobHelper
 
 Take a look at `tutorial/tutorial.md` to learn how to scale existing programs / scripts in HPC with
-`JobHelper`. Nowadays, large language models (LLMs) can help you convert your existing scripts to
-use `JobHelper` quickly and easily.
+`JobHelper`. 
+
+#### LLM-Assisted Conversion
+
+This project includes a [SKILL.md](SKILL.md) file that provides a structured guide for **Large Language Models (LLMs)**. You can use this file to help an LLM automate the conversion of your plain Python scripts into `JobArgBase` classes and generate the corresponding project configurations.
+
+If your LLM interface supports "skills" or "system prompts," you can provide the content of `SKILL.md` to ensure the model follows the library's best practices.
 
 ### Full Tutorial
 
