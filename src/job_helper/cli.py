@@ -1,6 +1,5 @@
 import datetime
 import os
-import pydoc
 import shutil
 import subprocess
 import sys

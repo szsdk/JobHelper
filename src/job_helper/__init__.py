@@ -1,3 +1,4 @@
+# ruff: noqa: E402
 from loguru import logger
 
 logger.disable("job_helper")
