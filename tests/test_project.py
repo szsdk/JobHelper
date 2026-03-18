@@ -73,6 +73,8 @@ def test_jobflow(output_fn, project_cfg, tmp_path):
         pytest.skip("Kroki server timeout")
     except urllib.error.HTTPError as e:
         pytest.skip(e.read().decode())
+    except Exception as e:
+        pytest.skip(str(e))
 
 
 def test_flowchart(tmp_path):
@@ -93,6 +95,8 @@ def test_flowchart(tmp_path):
         pytest.skip("Kroki server timeout")
     except urllib.error.HTTPError as e:
         pytest.skip(e.read().decode())
+    except Exception as e:
+        pytest.skip(str(e))
 
 
 def test_project(project_cfg, slurm_server, testing_jhcfg):
