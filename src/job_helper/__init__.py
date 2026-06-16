@@ -5,6 +5,7 @@ logger.disable("job_helper")
 from .arg import ArgBase, JobArgBase
 from .config import JobHelperConfig, jhcfg
 from .project_helper import (
+    JobArrayArg,
     JobComboArg,
     JobConfig,
     Project,
@@ -19,6 +20,7 @@ __all__ = [
     "JobArgBase",
     "JobHelperConfig",
     "jhcfg",
+    "JobArrayArg",
     "JobComboArg",
     "JobConfig",
     "Project",

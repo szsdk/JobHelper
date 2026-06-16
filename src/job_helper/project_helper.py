@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import os
 import pydoc
 import subprocess
 import time
@@ -162,6 +163,75 @@ class JobComboArg(ProjectArgBase):
         return "\n".join(cmds)
 
 
+class JobArrayArg(ProjectArgBase):
+    """Run a list of project jobs as a Slurm job array.
+
+    Set the containing job's Slurm preamble `array` field to match the jobs list,
+    for example `array: 0-2` with the default `index_base=0`.
+    """
+
+    jobs: list[Union[str, JobConfig]]
+    index_base: int = Field(
+        default=0,
+        description="Array task id corresponding to the first job in jobs.",
+    )
+    env_var: str = Field(
+        default="SLURM_ARRAY_TASK_ID",
+        description="Environment variable containing the current array task id.",
+    )
+    shell: str = Field(default="/bin/bash", description="Shell used to run each task.")
+
+    def _job_config(self, project: Project, job: Union[str, JobConfig]):
+        if isinstance(job, str):
+            return project.jobs[job]
+        elif isinstance(job, JobConfig):
+            return job
+        else:
+            raise NotImplementedError
+
+    def script(self, project: Project) -> str:
+        jobs = [self._job_config(project, job) for job in self.jobs]
+        encoded_jobs = type(self)(
+            jobs=jobs,
+            index_base=self.index_base,
+            env_var=self.env_var,
+            shell=self.shell,
+        ).model_dump_json()
+        return f"""workdir="${{SLURM_TMPDIR:-/tmp}}/job-${{SLURM_JOB_ID:-$$}}"
+mkdir -p "$workdir"
+payload="$workdir/job-array.json"
+
+cat > "$payload" <<'EOF'
+{encoded_jobs}
+EOF
+
+cmd=$(python -m fire job_helper.project_helper JobArrayArg from-config "$payload" - fetch-job - script)
+exec {self.shell} -c "$cmd"
+"""
+
+    def fetch_job(self, array_id: Optional[int] = None) -> JobArgBase:
+        if array_id is None:
+            raw_array_id = os.environ.get(self.env_var)
+            if raw_array_id is None:
+                raise RuntimeError(f"{self.env_var} is not set.")
+            array_id = int(raw_array_id)
+        job_index = array_id - self.index_base
+        job_config = self.jobs[job_index]
+        if not isinstance(job_config, JobConfig):
+            raise TypeError(
+                "fetch_job can only be used after jobs have been resolved to JobConfig."
+            )
+        job_arg = CommandsManager()[job_config.command].model_validate(
+            job_config.config
+        )
+        if not isinstance(job_arg, JobArgBase):
+            raise TypeError(
+                f"Job array entry {array_id} must resolve to a JobArgBase with "
+                f"a script() method, got {type(job_arg).__name__}."
+            )
+        return job_arg
+
+
 class JobParallelArg(ProjectArgBase):
     """Run multiple JobArgBase jobs simultaneously using srun with background execution.
 
@@ -208,6 +278,7 @@ class JobParallelArg(ProjectArgBase):
 class CommandsManager:
     def __init__(self):
         self.commands = {
+            "job_array": JobArrayArg,
             "job_combo": JobComboArg,
             "job_parallel": JobParallelArg,
             "shell": ShellCommand,
