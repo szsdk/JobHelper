@@ -197,13 +197,14 @@ class JobArrayArg(ProjectArgBase):
             env_var=self.env_var,
             shell=self.shell,
         ).model_dump_json()
+        payload_delimiter = "JOB_HELPER_JOB_ARRAY_PAYLOAD"
         return f"""workdir="${{SLURM_TMPDIR:-/tmp}}/job-${{SLURM_JOB_ID:-$$}}"
 mkdir -p "$workdir"
 payload="$workdir/job-array.json"
 
-cat > "$payload" <<'EOF'
+cat > "$payload" <<'{payload_delimiter}'
 {encoded_jobs}
-EOF
+{payload_delimiter}
 
 cmd=$(python -m fire job_helper.project_helper JobArrayArg from-config "$payload" - fetch-job - script)
 exec {self.shell} -c "$cmd"

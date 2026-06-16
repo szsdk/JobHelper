@@ -10,7 +10,11 @@ from job_helper.scheduler import JobPreamble
 
 
 def _config_from_script(script: str) -> dict:
-    match = re.search(r"cat > \"\$payload\" <<'EOF'\n(.+)\nEOF", script)
+    match = re.search(
+        r"cat > \"\$payload\" <<'JOB_HELPER_JOB_ARRAY_PAYLOAD'\n"
+        r"(.+)\nJOB_HELPER_JOB_ARRAY_PAYLOAD",
+        script,
+    )
     assert match is not None
     return json.loads(match.group(1))
 
