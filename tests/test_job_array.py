@@ -5,6 +5,8 @@ import os
 import re
 import subprocess
 
+import pytest
+
 from job_helper.project_helper import JobArrayArg, JobConfig, Project
 from job_helper.scheduler import JobPreamble
 
@@ -103,6 +105,30 @@ def test_job_array_fetch_job_returns_selected_script():
     job_arg = job_array.fetch_job(1)
     assert hasattr(job_arg, "script")
     assert job_arg.script() == "echo job-1"
+
+
+def test_job_array_fetch_job_reuses_single_entry_for_any_array_id():
+    job_array = JobArrayArg(
+        jobs=[
+            JobConfig(command="shell", config={"sh": "echo task-$SLURM_ARRAY_TASK_ID"})
+        ]
+    )
+
+    assert job_array.fetch_job(0).script() == "echo task-$SLURM_ARRAY_TASK_ID"
+    assert job_array.fetch_job(42).script() == "echo task-$SLURM_ARRAY_TASK_ID"
+
+
+def test_job_array_fetch_job_rejects_out_of_range_multi_job_array_id():
+    job_array = JobArrayArg(
+        jobs=[
+            JobConfig(command="shell", config={"sh": "echo job-0"}),
+            JobConfig(command="shell", config={"sh": "echo job-1"}),
+        ],
+        index_base=1,
+    )
+
+    with pytest.raises(IndexError, match="Array task id 3 resolves to job index 2"):
+        job_array.fetch_job(3)
 
 
 def test_job_array_fetch_job_fire_command(tmp_path):

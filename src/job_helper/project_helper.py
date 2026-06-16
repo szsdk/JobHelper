@@ -168,9 +168,10 @@ class JobArrayArg(ProjectArgBase):
 
     Set the containing job's Slurm preamble `array` field to match the jobs list,
     for example `array: 0-2` with the default `index_base=0`.
+    If exactly one job is provided, it is reused for every array task id.
     """
 
-    jobs: list[Union[str, JobConfig]]
+    jobs: list[Union[str, JobConfig]] = Field(min_length=1)
     index_base: int = Field(
         default=0,
         description="Array task id corresponding to the first job in jobs.",
@@ -216,8 +217,17 @@ exec {self.shell} -c "$cmd"
             if raw_array_id is None:
                 raise RuntimeError(f"{self.env_var} is not set.")
             array_id = int(raw_array_id)
-        job_index = array_id - self.index_base
-        job_config = self.jobs[job_index]
+        if len(self.jobs) == 1:
+            job_config = self.jobs[0]
+        else:
+            job_index = array_id - self.index_base
+            if job_index < 0 or job_index >= len(self.jobs):
+                raise IndexError(
+                    f"Array task id {array_id} resolves to job index {job_index}, "
+                    f"but {len(self.jobs)} jobs are configured with "
+                    f"index_base={self.index_base}."
+                )
+            job_config = self.jobs[job_index]
         if not isinstance(job_config, JobConfig):
             raise TypeError(
                 "fetch_job can only be used after jobs have been resolved to JobConfig."
