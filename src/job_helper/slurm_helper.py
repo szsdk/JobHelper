@@ -3,7 +3,6 @@ from __future__ import annotations
 import copy
 import os
 import subprocess
-import sys
 from datetime import datetime
 from typing import Annotated, Iterable, Literal, Optional, Union
 
@@ -184,21 +183,26 @@ class SlurmScheduler(Scheduler):
         """
         script = self.script(job)
         sbatch_cmd = self.sbatch_cmd
-        slurm_script = "\n".join([f'{sbatch_cmd} --parsable << "EOF"', script, "EOF"])
         if self.print_script:
             print(script)
         if dry:
             logger.info("It is a dry run.")
             return self
 
-        result = subprocess.run(
-            slurm_script, shell=True, stdout=subprocess.PIPE, env=_env0
-        )
-        stdout = result.stdout.decode("utf-8").strip()
-        if result.returncode != 0:
-            logger.error(result.stderr)
-            sys.exit(1)
-        job.job_id = int(stdout)
+        try:
+            result = subprocess.run(
+                [sbatch_cmd, "--parsable"],
+                input=script,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=True,
+                env=_env0,
+            )
+        except subprocess.CalledProcessError as error:
+            logger.error("sbatch failed: {}", error.stderr.strip())
+            raise
+        job.job_id = int(result.stdout.strip())
         logger.info("Submitted job {} to {}", job.config.job_name, job.job_id)
         if self.save_script:
             with (self.get_log_dir() / f"{job.job_id}_slurm.sh").open("w") as fp:

@@ -9,6 +9,7 @@ import pytest
 
 from job_helper.project_helper import JobArrayArg, JobConfig, Project
 from job_helper.scheduler import JobPreamble
+from job_helper.slurm_helper import SlurmScheduler
 
 
 def _config_from_script(script: str) -> dict:
@@ -164,3 +165,48 @@ def test_job_array_fetch_job_fire_command(tmp_path):
     )
 
     assert result.stdout.decode().strip() == "echo job-1"
+
+
+def test_large_job_array_script_is_submitted_through_stdin(monkeypatch):
+    large_command = "echo " + "x" * (1024 * 1024)
+    project = Project(
+        jobs={
+            "array_job": JobConfig(
+                command="job_array",
+                config={
+                    "jobs": [{"command": "shell", "config": {"sh": large_command}}]
+                },
+                job_preamble=JobPreamble(array="0-0"),
+            )
+        }
+    )
+    job_arg = project.commands["job_array"].model_validate(
+        project.jobs["array_job"].config
+    )
+    submitted = {}
+
+    def fake_run(command, **kwargs):
+        submitted["command"] = command
+        submitted.update(kwargs)
+        return subprocess.CompletedProcess(command, 0, stdout="123\n", stderr="")
+
+    monkeypatch.setattr("job_helper.slurm_helper.subprocess.run", fake_run)
+    scheduler = SlurmScheduler(print_script=False, save_script=False)
+
+    job = scheduler.submit(
+        project.jobs["array_job"].job_preamble,
+        job_arg.script(project),
+        {},
+        "array_job",
+        dry=False,
+    )
+
+    assert submitted["command"] == ["sbatch", "--parsable"]
+    assert "shell" not in submitted
+    assert len(submitted["input"].encode()) > 1024 * 1024
+    assert "cat > \"$payload\" <<'JOB_HELPER_JOB_ARRAY_PAYLOAD'" in submitted["input"]
+    assert submitted["text"] is True
+    assert submitted["stdout"] is subprocess.PIPE
+    assert submitted["stderr"] is subprocess.PIPE
+    assert submitted["check"] is True
+    assert job.job_id == 123
